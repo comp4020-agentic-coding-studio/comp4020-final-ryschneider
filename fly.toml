@@ -25,6 +25,9 @@ dockerfile = "Dockerfile"
 
 [env]
 PORT = "8080"
+# the SQLite file lives on the volume, so state survives reloads, restarts,
+# and redeploys
+DATABASE_PATH = "/data/app.db"
 
 [http_service]
 internal_port = 8080

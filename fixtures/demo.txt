@@ -1,0 +1,3 @@
+This is a placeholder room, seeded automatically to prove the deploy path end to end. Replace it with your own short text before the crit.
+
+Seed a real room the same way this one was seeded: `flyctl ssh console -a <app-name>` then `node scripts/seed-room.ts <slug> <path-to-text-file>` (the file needs to already exist in the running container, or you can heredoc it in over the SSH console).

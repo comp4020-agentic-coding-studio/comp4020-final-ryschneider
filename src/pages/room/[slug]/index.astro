@@ -1,0 +1,97 @@
+---
+import { getRoom, listHeatMarks } from "../../../lib/db";
+import { paragraphDensities } from "../../../lib/heat";
+import { splitParagraphs } from "../../../lib/paragraphs";
+
+const slug = Astro.params.slug!;
+const room = getRoom(slug);
+
+if (!room) {
+  Astro.response.status = 404;
+}
+
+const paragraphs = room ? splitParagraphs(room.text) : [];
+const heatMarks = room ? listHeatMarks(slug).map(({ startOffset, endOffset }) => ({ start: startOffset, end: endOffset })) : [];
+const densities = paragraphDensities(paragraphs, heatMarks);
+
+const roomData = { slug, paragraphs, heatMarks };
+---
+
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Margins — {slug}</title>
+  </head>
+  <body>
+    <nav aria-label="Primary">
+      <a href="/">Margins</a>
+    </nav>
+    <h1>Margins</h1>
+    {
+      !room ? (
+        <main>
+          <p>No room called "{slug}".</p>
+        </main>
+      ) : (
+        <main>
+          <h2>{slug}</h2>
+
+          <form id="join-gate">
+            <label>
+              Your name for this visit
+              <input name="handle" required maxlength="40" autocomplete="off" />
+            </label>
+            <button type="submit">Join</button>
+          </form>
+
+          <div id="room" hidden>
+            <aside id="presence" aria-label="Who's here"></aside>
+            <article id="room-text">
+              {paragraphs.map((p, i) => (
+                <p data-start={p.start} data-end={p.end} style={`--heat: ${densities[i]}`}>
+                  {p.text}
+                </p>
+              ))}
+            </article>
+          </div>
+
+          <script type="application/json" id="room-data" set:html={JSON.stringify(roomData)} />
+          <script>
+            import { initRoom } from "../../../scripts/margins-client";
+            initRoom();
+          </script>
+        </main>
+      )
+    }
+
+    <style>
+      #room {
+        display: grid;
+        grid-template-columns: 1fr 200px;
+        gap: 1.5rem;
+        align-items: start;
+      }
+      #room-text p {
+        background-color: rgba(200, 80, 20, var(--heat, 0));
+        padding: 0.25rem 0.4rem;
+        border-radius: 0.2rem;
+        transition: background-color 0.4s ease;
+      }
+      #room-text mark {
+        background-color: #ffe08a;
+        cursor: help;
+      }
+      #presence {
+        font-size: 0.85rem;
+        color: #666;
+      }
+      #presence ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+    </style>
+  </body>
+</html>

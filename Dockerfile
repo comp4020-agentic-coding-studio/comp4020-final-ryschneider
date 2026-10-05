@@ -18,6 +18,11 @@ RUN npm install -g pnpm@$PNPM_VERSION
 # --- build stage: install everything, build, then prune to prod deps -------
 FROM base AS build
 
+# toolchain for native modules (better-sqlite3), in case no prebuilt binary
+# matches the image platform
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential pkg-config python-is-python3
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod=false
 
@@ -30,7 +35,15 @@ FROM base
 
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/dist /app/dist
+# the committed migrations, applied at boot (see src/lib/db.ts)
+COPY --from=build /app/drizzle /app/drizzle
 COPY README.md /app/README.md
+# rooms are seeded by hand: `flyctl ssh console -a <app-name>`, then
+# `node scripts/seed-room.ts <slug> <path>` --- these two files plus
+# fixtures/demo.txt are what that needs once deployed
+COPY --from=build /app/scripts/seed-room.ts /app/scripts/seed-room.ts
+COPY --from=build /app/src/lib/schema.ts /app/src/lib/schema.ts
+COPY fixtures/demo.txt /app/fixtures/demo.txt
 
 # fly.toml sets PORT (0.0.0.0:$PORT is what Fly's proxy forwards to)
 ENV HOST=0.0.0.0
