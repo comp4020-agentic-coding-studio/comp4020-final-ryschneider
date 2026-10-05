@@ -67,6 +67,11 @@ const roomData = { slug, paragraphs, heatMarks };
     }
 
     <style>
+      main {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
       #room {
         display: grid;
         grid-template-columns: 1fr 200px;
@@ -77,6 +82,7 @@ const roomData = { slug, paragraphs, heatMarks };
         background-color: rgba(200, 80, 20, var(--heat, 0));
         padding: 0.25rem 0.4rem;
         border-radius: 0.2rem;
+        white-space: pre-line;
         transition: background-color 0.4s ease;
       }
       #room-text mark {

@@ -1,3 +1,28 @@
-This is a placeholder room, seeded automatically to prove the deploy path end to end. Replace it with your own short text before the crit.
+Seyton! — I am sick at heart,
+When I behold — Seyton, I say! — This push
+Will cheer me ever, or disseat me now.
+I have lived long enough: my way of life
+Is fall'n into the sere, the yellow leaf;
+And that which should accompany old age,
+As honour, love, obedience, troops of friends,
+I must not look to have; but, in their stead,
+Curses, not loud but deep, mouth-honour, breath,
+Which the poor heart would fain deny, and dare not.
 
-Seed a real room the same way this one was seeded: `flyctl ssh console -a <app-name>` then `node scripts/seed-room.ts <slug> <path-to-text-file>` (the file needs to already exist in the running container, or you can heredoc it in over the SSH console).
+She should have died hereafter;
+There would have been a time for such a word.
+To-morrow, and to-morrow, and to-morrow,
+Creeps in this petty pace from day to day
+To the last syllable of recorded time,
+And all our yesterdays have lighted fools
+The way to dusty death. Out, out, brief candle!
+Life's but a walking shadow, a poor player
+That struts and frets his hour upon the stage
+And then is heard no more. It is a tale
+Told by an idiot, full of sound and fury,
+Signifying nothing.
+
+Thou com'st to use thy tongue; thy story quickly.
+As I did stand my watch upon the hill,
+I look'd toward Birnam, and anon, methought,
+The wood began to move.
