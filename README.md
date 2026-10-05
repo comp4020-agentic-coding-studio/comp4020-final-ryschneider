@@ -1,9 +1,13 @@
 # Your app
 
-<!-- TEMPLATE: this file is yours, and the deployed app publishes it in full at
-     /readme/, where visitors and markers read it. The final project brief says
-     what it covers. Replace everything in it, this comment included. -->
+Margins is a place for a small club to read one text together, and it treats the text as the thing that matters. Everything else in the app is subordinate to the page.
 
-Images are committed to the repo and linked relatively ---
-`![alt](docs/before.png)` --- so they render on GitHub; making them resolve at
-`/readme/` too is your app's job.
+For Margins, "good" means the page stays readable and the group's attention becomes visible without anyone having to read a thread. Most social software measures itself by how much gets said. Margins measures itself by a narrower test: after an evening of five people reading the same chapter, can you open the page and see where the group lingered? Annotations are made in the margin, live, as people read. They are short. And they don't pile up. As they age they collapse into attention marks, a quiet heat along the text showing which passages drew people in, while the notes themselves fade back unless someone returns to them.
+
+That is the concrete difference from a discussion board or a comment thread. A thread is ordered by time and grows without limit, and its reward is more replies. Margins is ordered by position in the text, and its state decays. A note's warmth spreads to the surrounding passage and fades if nobody touches it, so what you see at any moment is where the group's attention currently is, not an archive of everything ever typed. Two people reading the same paragraph see each other's marks appear live, which is the part a comment section can't give you: the sense of reading in the same room.
+
+I didn't get here by studying social products. The brief points at the small web, games for a handful of friends, and tools built for one workshop, and those mattered less as things to copy than as permission. It is fine to build for a dozen people who know each other and to let the design assume that, with no feed, no follower counts, and no need to impress strangers. The sources that actually shaped the decision were older and more physical: the marginalia in a shared library book, and the dog-eared copy a reading group passes around, where the creases show you where everyone got stuck. Margins is that copy, made live.
+
+A stranger should be able to land on a room that is already in use, watch a mark appear and spread, and understand within a minute what the app is for. That is the test for "good": they see the text first, they see where other people paused, and they feel pulled to leave a note of their own. "A chat app with extra steps" is what Margins would be if the notes stayed in a stream, if the text shrank into a sidebar, or if nothing ever faded. If the heat reads as a list of comments in disguise, I've failed.
+
+This week I am deliberately not trying to be good at several things. Not accounts and identity beyond the minimum, not moderation, not mobile polish, not scaling past a single machine, and not rich text or several texts per club. Those all matter for a real product. For this week the only question is whether one shared text, read live, produces a page that tells the truth about a group's attention. If it does, the rest is worth building. If it doesn't, none of the rest would have saved it.
