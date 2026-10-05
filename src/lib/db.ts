@@ -30,6 +30,10 @@ export function getRoom(slug: string): Room | undefined {
   return db.select().from(rooms).where(eq(rooms.slug, slug)).get();
 }
 
+export function listRooms(): Room[] {
+  return db.select().from(rooms).orderBy(asc(rooms.createdAt)).all();
+}
+
 export function listHeatMarks(slug: string): HeatMark[] {
   return db
     .select()

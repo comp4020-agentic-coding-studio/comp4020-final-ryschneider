@@ -1,4 +1,7 @@
 ---
+import { listRooms } from "../lib/db";
+
+const rooms = listRooms();
 ---
 
 <!doctype html>
@@ -14,7 +17,20 @@
     </nav>
     <main>
       <h1>Margins</h1>
-      <p>A small group reads one short text together, live. Rooms are shared by link.</p>
+      <p>A small group reads one short text together, live.</p>
+      {
+        rooms.length === 0 ? (
+          <p>No rooms yet.</p>
+        ) : (
+          <ul>
+            {rooms.map((room) => (
+              <li>
+                <a href={`/room/${room.slug}/`}>{room.slug}</a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
       <p><a href="/readme/">About this app</a></p>
     </main>
   </body>
