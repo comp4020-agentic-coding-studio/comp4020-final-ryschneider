@@ -1,4 +1,5 @@
 ---
+import Layout from "../../../layouts/Layout.astro";
 import { getRoom, listHeatMarks } from "../../../lib/db";
 import { paragraphDensities } from "../../../lib/heat";
 import { splitParagraphs } from "../../../lib/paragraphs";
@@ -17,87 +18,156 @@ const densities = paragraphDensities(paragraphs, heatMarks);
 const roomData = { slug, paragraphs, heatMarks };
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Margins — {slug}</title>
-  </head>
-  <body>
-    <nav aria-label="Primary">
-      <a href="/">Margins</a>
-    </nav>
-    <h1>Margins</h1>
-    {
-      !room ? (
-        <main>
-          <p>No room called "{slug}".</p>
-        </main>
-      ) : (
-        <main>
-          <h2>{slug}</h2>
+<Layout title={room ? `Margins — ${slug}` : "Margins — not found"}>
+  {
+    !room ? (
+      <main class="page">
+        <h1>Not found</h1>
+        <p>There's no room called "{slug}".</p>
+      </main>
+    ) : (
+      <main class="page room-page">
+        <h1>{slug}</h1>
 
-          <form id="join-gate">
-            <label>
-              Your name for this visit
-              <input name="handle" required maxlength="40" autocomplete="off" />
-            </label>
-            <button type="submit">Join</button>
-          </form>
+        <form id="join-gate">
+          <label>
+            Your name for this visit
+            <input name="handle" required maxlength="40" autocomplete="off" />
+          </label>
+          <button type="submit">Join</button>
+        </form>
 
-          <div id="room" hidden>
-            <aside id="presence" aria-label="Who's here"></aside>
-            <article id="room-text">
-              {paragraphs.map((p, i) => (
-                <p data-start={p.start} data-end={p.end} style={`--heat: ${densities[i]}`}>
-                  {p.text}
-                </p>
-              ))}
-            </article>
-          </div>
+        <div id="room" class="room" hidden>
+          <article id="room-text" class="room-text">
+            {paragraphs.map((p, i) => (
+              <p data-start={p.start} data-end={p.end} style={`--heat: ${densities[i]}`}>
+                {p.text}
+              </p>
+            ))}
+          </article>
+          <aside id="presence" class="margin-notes" aria-label="Who's here" />
+        </div>
 
-          <script type="application/json" id="room-data" set:html={JSON.stringify(roomData)} />
-          <script>
-            import { initRoom } from "../../../scripts/margins-client";
-            initRoom();
-          </script>
-        </main>
-      )
+        <script type="application/json" id="room-data" set:html={JSON.stringify(roomData)} />
+        <script>
+          import { initRoom } from "../../../scripts/margins-client";
+          initRoom();
+        </script>
+      </main>
+    )
+  }
+</Layout>
+
+<style>
+  .room-page h1 {
+    font-style: italic;
+    font-weight: 500;
+    color: var(--ink-muted);
+    margin-bottom: var(--space-3);
+  }
+
+  #join-gate {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+    font-size: 0.95rem;
+  }
+
+  /* An author display value always beats the [hidden] UA default, so
+     toggling the `hidden` property from margins-client.ts needs an explicit,
+     higher-specificity rule here or both states render at once. */
+  #join-gate[hidden],
+  .room[hidden] {
+    display: none;
+  }
+
+  #join-gate label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    color: var(--ink-muted);
+  }
+
+  #join-gate input {
+    min-width: 12rem;
+  }
+
+  .room {
+    display: grid;
+    grid-template-columns: minmax(0, var(--measure)) 12rem;
+    gap: var(--space-4);
+    align-items: start;
+    /* The text+margin unit centers as a whole, rather than the text column
+       centering on its own and leaving a lopsided gap where the margin
+       column happens to be empty. */
+    max-width: calc(var(--measure) + var(--space-4) + 12rem);
+    margin: 0 auto;
+  }
+
+  .room-text {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    line-height: 1.7;
+  }
+
+  .room-text p {
+    /* scaled down from the raw density so a fully "hot" paragraph stays
+       legible --- the stored value is the real signal, this is just render */
+    background-color: rgba(var(--ember-wash), calc(var(--heat, 0) * 0.45));
+    white-space: pre-line;
+    margin: 0 0 1.4em;
+    transition: background-color 0.6s ease;
+  }
+
+  /* <mark> elements are inserted by margins-client.ts via
+     document.createElement, so they never carry Astro's scoping attribute
+     --- :global() is required or this rule silently never matches. */
+  .room-text :global(mark) {
+    background-color: #e8c27a;
+    color: var(--ink);
+    padding: 0 0.1em;
+    cursor: help;
+  }
+
+  .margin-notes {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 0.9rem;
+    color: var(--presence);
+    padding-top: 0.3em;
+    border-left: 1px solid var(--line);
+    padding-left: var(--space-2);
+  }
+
+  /* Same reason as the mark rule above: renderPresence() builds this <ul>
+     with document.createElement, so it needs :global() too. */
+  .margin-notes :global(ul) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .margin-notes :global(li) {
+    margin-bottom: 0.75em;
+  }
+
+  @media (max-width: 42rem) {
+    .room {
+      grid-template-columns: 1fr;
+      max-width: var(--measure);
     }
 
-    <style>
-      main {
-        max-width: 700px;
-        margin: 0 auto;
-        padding: 1rem;
-      }
-      #room {
-        display: grid;
-        grid-template-columns: 1fr 200px;
-        gap: 1.5rem;
-        align-items: start;
-      }
-      #room-text p {
-        background-color: rgba(200, 80, 20, var(--heat, 0));
-        padding: 0.25rem 0.4rem;
-        border-radius: 0.2rem;
-        white-space: pre-line;
-        transition: background-color 0.4s ease;
-      }
-      #room-text mark {
-        background-color: #ffe08a;
-        cursor: help;
-      }
-      #presence {
-        font-size: 0.85rem;
-        color: #666;
-      }
-      #presence ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-    </style>
-  </body>
-</html>
+    .margin-notes {
+      border-left: none;
+      border-top: 1px solid var(--line);
+      padding-left: 0;
+      padding-top: var(--space-2);
+    }
+
+    #join-gate {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+</style>

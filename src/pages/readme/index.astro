@@ -4,19 +4,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { marked } from "marked";
+import Layout from "../../layouts/Layout.astro";
 
 const markdown = readFileSync(path.join(process.cwd(), "README.md"), "utf8");
 const body = marked.parse(markdown);
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>About</title>
-  </head>
-  <body>
-    <main set:html={body} />
-  </body>
-</html>
+<Layout title="About — Margins">
+  <main class="page">
+    <article class="prose" set:html={body} />
+  </main>
+</Layout>

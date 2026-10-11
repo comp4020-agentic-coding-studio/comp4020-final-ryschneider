@@ -1,37 +1,78 @@
 ---
+import Layout from "../layouts/Layout.astro";
 import { listRooms } from "../lib/db";
 
 const rooms = listRooms();
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Margins</title>
-  </head>
-  <body>
-    <nav aria-label="Primary">
-      <a href="/readme/">About this app</a>
-    </nav>
-    <main>
-      <h1>Margins</h1>
-      <p>A small group reads one short text together, live.</p>
-      {
-        rooms.length === 0 ? (
-          <p>No rooms yet.</p>
-        ) : (
-          <ul>
-            {rooms.map((room) => (
-              <li>
-                <a href={`/room/${room.slug}/`}>{room.slug}</a>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-      <p><a href="/readme/">About this app</a></p>
-    </main>
-  </body>
-</html>
+<Layout title="Margins">
+  <main class="page">
+    <h1>Margins</h1>
+    <p class="lede">A small group reads one short text together, live.</p>
+
+    {
+      rooms.length === 0 ? (
+        <p>No rooms yet.</p>
+      ) : (
+        <ul class="room-list">
+          {rooms.map((room) => (
+            <li>
+              <a href={`/room/${room.slug}/`}>{room.slug}</a>
+              <p class="room-excerpt">{room.text.slice(0, 120).trim()}&hellip;</p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    <p class="about-link"><a href="/readme/">About this app</a></p>
+  </main>
+</Layout>
+
+<style>
+  .lede {
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    color: var(--ink-muted);
+    max-width: var(--measure);
+  }
+
+  .room-list {
+    list-style: none;
+    margin: var(--space-4) 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .room-list li {
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .room-list a {
+    font-family: var(--font-serif);
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .room-list a:hover {
+    color: var(--ember);
+  }
+
+  .room-excerpt {
+    font-family: var(--font-serif);
+    color: var(--ink-muted);
+    margin: 0.35rem 0 0;
+    max-width: var(--measure);
+  }
+
+  .about-link {
+    font-size: 0.9rem;
+  }
+
+  .about-link a {
+    color: var(--ink-muted);
+  }
+</style>

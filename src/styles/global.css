@@ -1,0 +1,159 @@
+/* Margins — design tokens and base styles.
+   Paper and ink, not software chrome: the text and the attention around it
+   are the whole product, so color is spent on distinguishing those two
+   things (warm = past attention, cool = who's here now) rather than on
+   decoration. See ARCHITECTURE.md for the product this serves. */
+
+:root {
+  --paper: #ede9e2;
+  --paper-dim: #e2ddd1;
+  --ink: #2a2722;
+  --ink-muted: #6e6a61;
+  --line: #d6cfc0;
+
+  --ember: #8a4c1e;
+  --ember-bright: #c97a2e;
+  --ember-wash: 201, 122, 46; /* rgb triplet for alpha-blended heat washes */
+
+  --presence: #2f5c54;
+  --presence-dim: #5c8f86;
+
+  --font-serif: "Literata", Georgia, "Times New Roman", serif;
+  --font-sans: "Work Sans", system-ui, -apple-system, sans-serif;
+
+  --measure: 34rem; /* ~65-70 characters at body size */
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.75rem;
+  --space-4: 3rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 var(--space-2);
+}
+
+h1 {
+  font-size: 1.75rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+p {
+  margin: 0 0 var(--space-2);
+}
+
+a {
+  color: var(--ember);
+  text-decoration-color: var(--line);
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--ember-bright);
+  outline-offset: 2px;
+}
+
+button {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  background: none;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+input {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  padding: 0.35rem 0.1rem;
+  color: var(--ink);
+}
+
+input:focus {
+  border-bottom-color: var(--ink);
+}
+
+/* Site chrome: deliberately quiet so the text stays the thing you look at. */
+.site-nav {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  padding: var(--space-3) var(--space-2) 0;
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+.site-nav a {
+  color: var(--ink-muted);
+}
+
+.page {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-2) var(--space-4);
+}
+
+/* Rendered README content at /readme/ */
+.prose {
+  max-width: var(--measure);
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: var(--space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

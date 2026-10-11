@@ -161,6 +161,45 @@ not obvious from the code alone:
   asked to make this "more precise" or "more real-time," check with whoever's
   directing the work first — it was intentionally kept loose.
 
+## Design system — `src/styles/global.css` + `src/layouts/Layout.astro`
+
+Paper and ink, not software chrome: color is spent distinguishing the
+product's own two kinds of attention (warm `--ember` = faded/past, cool
+`--presence` = live/present) rather than decorating the interface. Tokens
+(colors, the two type families — **Literata** for the text and headings,
+**Work Sans** for UI chrome — spacing scale) live in `global.css`'s `:root`;
+`Layout.astro` loads the fonts and wraps every page (`index.astro`, the room
+page, `readme/index.astro`) so the three stay visually consistent. Change a
+token in one place, not per-page.
+
+Two real bugs this surfaced, both easy to reintroduce:
+
+- **An author `display` always beats the `[hidden]` UA default.** Any
+  selector that sets `display` on an element also toggled via the `hidden`
+  property/attribute (`#join-gate`, `.room` here) needs an explicit
+  `selector[hidden] { display: none; }` rule, or both states render at once
+  the moment that selector's `display` declaration exists. This bit the room
+  page's join-gate/room toggle silently until a real headless-browser
+  screenshot caught it — `curl`/`astro check`/`vitest` never would, since
+  none of them execute CSS cascade + the `hidden` IDL property together.
+- **`margins-client.ts` creates `<mark>` and the presence `<ul>`/`<li>` via
+  `document.createElement`, not Astro's template** — so they never receive
+  Astro's scoped-style attribute, and a plain scoped selector
+  (`.room-text mark`, `.margin-notes ul`) silently never matches them. Wrap
+  the part of the selector that targets JS-inserted content in `:global()`
+  (`.room-text :global(mark)`). Anything new that margins-client.ts builds
+  with `createElement` needs the same treatment.
+
+Both were only found by actually driving the page with a headless browser
+(screenshot + a real join via dispatched form submit, not a hand-edited HTML
+fixture — an early attempt to fake the "joined" state by string-replacing the
+`hidden` attribute out of raw HTML silently also stripped the scoping
+attribute and produced a phantom bug that didn't exist in the real app).
+`curl`-based checks (including the ones in `spec/`) cannot catch either
+class of bug, since both depend on the browser's CSS cascade and the DOM
+actually being built by JS. Trust a real rendered page over a static HTML
+diff when touching anything `hidden`-toggled or client-rendered.
+
 ## Seeding — local and production, same command
 
 `node scripts/seed-room.ts <slug> <path-to-text-file>`, upserts a room.
@@ -206,6 +245,8 @@ are seeded by hand on purpose.
 | Touch presence/notes/propagation/fade logic | `src/lib/rooms.ts` — read the invariant above first |
 | Add a route | `src/pages/api/room/[slug]/` for API shape, `src/pages/room/[slug]/index.astro` for the page |
 | Change how notes/heat render | `src/scripts/margins-client.ts` (client), `src/lib/heat.ts` (shared density math) |
+| Change colors, type, or spacing | `src/styles/global.css` tokens — not per-page overrides |
+| Style something margins-client.ts builds with `createElement` | needs `:global()` in that page's `<style>` — see "Design system" above |
 | Seed or reseed a room | `scripts/seed-room.ts`; production via `flyctl ssh console` (see above) |
 | Know what's mechanically checked vs. judged by a person | `spec/README.md` |
 | Know what's fixed about the deploy vs. what's this app's choice | `fly.toml`, `Dockerfile` (both have comments marking the line) |
