@@ -151,11 +151,17 @@ not obvious from the code alone:
   whole document, since paragraphs get rewritten as notes attach to them.
 - **Rendering a paragraph with notes** fully rebuilds that paragraph's
   content from the **original stored text** (the embedded JSON, never the
-  live DOM) every time its overlapping-notes set changes, alternating text
-  nodes and `<mark>` elements. This was chosen over incremental
-  `Range.surroundContents()` DOM surgery specifically because that approach
-  breaks on overlapping/partial selections — don't reintroduce it without
-  solving that.
+  live DOM) every time its overlapping-notes set changes. This was chosen
+  over incremental `Range.surroundContents()` DOM surgery specifically
+  because that approach breaks on overlapping/partial selections — don't
+  reintroduce it without solving that. It walks the **union of every
+  overlapping note's start/end** as cut points and renders one segment per
+  gap, rather than one mark per note at a running cursor — the latter was
+  shipped first and silently duplicated the covered text whenever two
+  notes shared or overlapped a span, since each note appended its own copy
+  of that text regardless of what an earlier note already rendered there.
+  A segment covered by several notes becomes one `<mark>` whose title/popover
+  joins all of them (`"A: ... / B: ..."`), not just the first.
 - **Location/presence is deliberately de-emphasized**: a paragraph-level,
   throttled signal, rendered as a muted text list, not a cursor. If you're
   asked to make this "more precise" or "more real-time," check with whoever's

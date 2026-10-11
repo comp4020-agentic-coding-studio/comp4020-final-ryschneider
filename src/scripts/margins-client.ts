@@ -82,22 +82,47 @@ export function initRoom(): void {
 
     const overlapping = notesForParagraph(index);
     el.textContent = "";
-    let cursor = p.start;
+
+    if (overlapping.length === 0) {
+      el.appendChild(document.createTextNode(p.text));
+      return;
+    }
+
+    // Walk segments between every note's (clipped) start/end, rather than
+    // appending one mark per note at its own cursor position --- two notes
+    // on the same or overlapping span used to each re-render their own
+    // copy of the covered text, visibly duplicating it. A segment covered
+    // by more than one note renders as a single mark combining all of them.
+    const bounds = new Set<number>([p.start, p.end]);
     for (const note of overlapping) {
-      const start = Math.max(note.start, p.start);
-      const end = Math.min(note.end, p.end);
-      if (start > cursor) {
-        el.appendChild(document.createTextNode(p.text.slice(cursor - p.start, start - p.start)));
+      bounds.add(Math.max(note.start, p.start));
+      bounds.add(Math.min(note.end, p.end));
+    }
+    const points = [...bounds].sort((a, b) => a - b);
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const segStart = points[i];
+      const segEnd = points[i + 1];
+      if (segStart >= segEnd) continue;
+      const segmentText = p.text.slice(segStart - p.start, segEnd - p.start);
+      const covering = overlapping.filter((n) => n.start <= segStart && n.end >= segEnd);
+
+      if (covering.length === 0) {
+        el.appendChild(document.createTextNode(segmentText));
+        continue;
       }
+
       const mark = document.createElement("mark");
-      mark.dataset.noteId = String(note.id);
+      mark.dataset.noteId = covering.map((n) => n.id).join(",");
       // title is the accessible fallback (screen readers, no-JS tooltip);
       // data-note drives the visible popover in CSS, since generated
-      // ::after content isn't reliably announced.
-      mark.title = `${note.handle}: ${note.text}`;
-      mark.dataset.note = `${note.handle}: ${note.text}`;
+      // ::after content isn't reliably announced. Multiple notes covering
+      // the same segment are joined, not picked one-of.
+      const summary = covering.map((n) => `${n.handle}: ${n.text}`).join(" / ");
+      mark.title = summary;
+      mark.dataset.note = summary;
       mark.tabIndex = 0;
-      mark.textContent = p.text.slice(start - p.start, end - p.start);
+      mark.textContent = segmentText;
       // Tap-to-toggle so the note is readable on touch, where :hover never
       // fires; mousedown (not click) so a drag-selection starting on an
       // existing mark doesn't also toggle it open.
@@ -107,10 +132,6 @@ export function initRoom(): void {
         mark.classList.toggle("open");
       });
       el.appendChild(mark);
-      cursor = end;
-    }
-    if (cursor < p.end) {
-      el.appendChild(document.createTextNode(p.text.slice(cursor - p.start)));
     }
   }
 
