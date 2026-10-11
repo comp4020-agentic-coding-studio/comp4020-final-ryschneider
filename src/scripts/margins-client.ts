@@ -91,8 +91,21 @@ export function initRoom(): void {
       }
       const mark = document.createElement("mark");
       mark.dataset.noteId = String(note.id);
-      mark.title = note.handle;
+      // title is the accessible fallback (screen readers, no-JS tooltip);
+      // data-note drives the visible popover in CSS, since generated
+      // ::after content isn't reliably announced.
+      mark.title = `${note.handle}: ${note.text}`;
+      mark.dataset.note = `${note.handle}: ${note.text}`;
+      mark.tabIndex = 0;
       mark.textContent = p.text.slice(start - p.start, end - p.start);
+      // Tap-to-toggle so the note is readable on touch, where :hover never
+      // fires; mousedown (not click) so a drag-selection starting on an
+      // existing mark doesn't also toggle it open.
+      mark.addEventListener("mousedown", (e) => e.stopPropagation());
+      mark.addEventListener("click", (e) => {
+        e.stopPropagation();
+        mark.classList.toggle("open");
+      });
       el.appendChild(mark);
       cursor = end;
     }

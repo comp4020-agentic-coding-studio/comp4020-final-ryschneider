@@ -130,7 +130,42 @@ const roomData = { slug, paragraphs, heatMarks };
     background-color: #e8c27a;
     color: var(--ink);
     padding: 0 0.1em;
-    cursor: help;
+    cursor: pointer;
+    position: relative;
+  }
+
+  /* The note's actual text, shown on hover/focus (mouse, keyboard) and on
+     tap via the "open" class margins-client.ts toggles --- :hover alone
+     never fires on touch. Generated content isn't reliably read by screen
+     readers, so the mark's `title` attribute carries the same text as a
+     fallback. */
+  .room-text :global(mark::after) {
+    content: attr(data-note);
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    margin-bottom: 0.4em;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-style: normal;
+    line-height: 1.4;
+    padding: 0.5em 0.7em;
+    border-radius: 0.2rem;
+    width: max-content;
+    max-width: 16rem;
+    white-space: normal;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 1;
+  }
+
+  .room-text :global(mark:hover::after),
+  .room-text :global(mark:focus::after),
+  .room-text :global(mark.open::after) {
+    opacity: 1;
   }
 
   .margin-notes {
