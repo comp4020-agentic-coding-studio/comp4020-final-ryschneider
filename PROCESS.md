@@ -36,7 +36,7 @@ I decided the shape of the product, the stack, the SSE choice, and the rule for 
 
 Three corrections are worth recording.
 
-First, the carrier-set call. The agent's first instinct was to treat the set of readers a mark reaches as fixed when the note is written. I pushed for it to extend with every viewer, because attention in a live room isn't a snapshot, and fixing it at write time would make a mark's reach depend on who happened to be online at that second.
+First, the carrier-set call. [FACT CORRECTED, REWRITE IN YOUR OWN WORDS: the shipped behaviour is the opposite of what this paragraph said — a mark's reach is FIXED to whoever was present the moment it was written, not extended to every later viewer. The agent asked this as a direct either/or question rather than defaulting to one side; this paragraph's "agent's instinct vs. I pushed back" framing doesn't match what happened and needs rewriting alongside the fix.]
 
 Second, the demo room. The agent proposed seeding a demo room automatically so the deployed app would never look empty. I said no: production code shouldn't silently create data to flatter a first impression. Seeding is a deliberate, separate step.
 
