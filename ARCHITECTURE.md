@@ -176,12 +176,23 @@ Two real bugs this surfaced, both easy to reintroduce:
 
 - **An author `display` always beats the `[hidden]` UA default.** Any
   selector that sets `display` on an element also toggled via the `hidden`
-  property/attribute (`#join-gate`, `.room` here) needs an explicit
-  `selector[hidden] { display: none; }` rule, or both states render at once
-  the moment that selector's `display` declaration exists. This bit the room
-  page's join-gate/room toggle silently until a real headless-browser
-  screenshot caught it — `curl`/`astro check`/`vitest` never would, since
-  none of them execute CSS cascade + the `hidden` IDL property together.
+  property/attribute needs an explicit `selector[hidden] { display: none; }`
+  rule, or both states render at once the moment that selector's `display`
+  declaration exists. This bit `#join-gate` silently until a real
+  headless-browser screenshot caught it — `curl`/`astro check`/`vitest`
+  never would, since none of them execute CSS cascade + the `hidden` IDL
+  property together. (`.room`/`#room-text` are **never** hidden at all —
+  see below, that was a related but separate bug.)
+- **The room text renders unconditionally, with or without joining.** An
+  earlier version wrapped `#room-text` in the same hidden-until-joined `div`
+  as the presence sidebar. Combined with the bug above, that accidentally
+  rendered correctly (the hidden toggle was broken, so the text showed
+  anyway) until the `[hidden]` fix made the gate actually work --- which then
+  hid the text behind a mandatory name prompt, contradicting the "a stranger
+  can visit and see the trace" proof-of-life requirement this file already
+  documented. Only `#join-gate` and the live features behind it (presence,
+  writing notes) are gated; the text and its persisted heat are not, and
+  should never be.
 - **`margins-client.ts` creates `<mark>` and the presence `<ul>`/`<li>` via
   `document.createElement`, not Astro's template** — so they never receive
   Astro's scoped-style attribute, and a plain scoped selector

@@ -37,7 +37,7 @@ const roomData = { slug, paragraphs, heatMarks };
           <button type="submit">Join</button>
         </form>
 
-        <div id="room" class="room" hidden>
+        <div id="room" class="room">
           <article id="room-text" class="room-text">
             {paragraphs.map((p, i) => (
               <p data-start={p.start} data-end={p.end} style={`--heat: ${densities[i]}`}>
@@ -75,10 +75,13 @@ const roomData = { slug, paragraphs, heatMarks };
   }
 
   /* An author display value always beats the [hidden] UA default, so
-     toggling the `hidden` property from margins-client.ts needs an explicit,
-     higher-specificity rule here or both states render at once. */
-  #join-gate[hidden],
-  .room[hidden] {
+     toggling `gate.hidden` from margins-client.ts needs an explicit,
+     higher-specificity rule here or it would stay visible after joining.
+     .room is never hidden --- the text and its heat render unconditionally,
+     with or without JS, because that's the proof-of-life artifact a
+     stranger needs to see without joining (see ARCHITECTURE.md). Only the
+     join prompt and the live features behind it are gated. */
+  #join-gate[hidden] {
     display: none;
   }
 

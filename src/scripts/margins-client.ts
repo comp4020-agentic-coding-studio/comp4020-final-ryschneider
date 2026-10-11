@@ -165,7 +165,6 @@ export function initRoom(): void {
     handle = value;
     connectionId = crypto.randomUUID();
     gate.hidden = true;
-    roomEl!.hidden = false;
     connect();
   });
 
