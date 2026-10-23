@@ -2,6 +2,7 @@
 import Layout from "../../../layouts/Layout.astro";
 import { getRoom, listHeatMarks } from "../../../lib/db";
 import { paragraphDensities } from "../../../lib/heat";
+import { displayName } from "../../../lib/library";
 import { splitParagraphs } from "../../../lib/paragraphs";
 
 const slug = Astro.params.slug!;
@@ -18,7 +19,7 @@ const densities = paragraphDensities(paragraphs, heatMarks);
 const roomData = { slug, paragraphs, heatMarks };
 ---
 
-<Layout title={room ? `Margins — ${slug}` : "Margins — not found"}>
+<Layout title={room ? `Margins — ${displayName(room)}` : "Margins — not found"}>
   {
     !room ? (
       <main class="page">
@@ -27,7 +28,13 @@ const roomData = { slug, paragraphs, heatMarks };
       </main>
     ) : (
       <main class="page room-page">
-        <h1>{slug}</h1>
+        <header class="room-header">
+          <h1>{displayName(room)}</h1>
+          <p class="room-byline">
+            a {room.kind} by {room.author}, from {room.sourceNote}
+          </p>
+          <p class="room-description">{room.description}</p>
+        </header>
 
         <div id="room" class="room">
           <article id="room-text" class="room-text">
@@ -62,11 +69,26 @@ const roomData = { slug, paragraphs, heatMarks };
 </Layout>
 
 <style>
+  .room-header {
+    margin-bottom: var(--space-4);
+  }
+
   .room-page h1 {
     font-style: italic;
-    font-weight: 500;
+    margin-bottom: 0.3rem;
+  }
+
+  .room-byline {
+    font-size: 0.9rem;
     color: var(--ink-muted);
-    margin-bottom: var(--space-3);
+    margin: 0 0 0.6rem;
+  }
+
+  .room-description {
+    font-family: var(--font-serif);
+    color: var(--ink-muted);
+    max-width: var(--measure);
+    margin: 0;
   }
 
   .room {

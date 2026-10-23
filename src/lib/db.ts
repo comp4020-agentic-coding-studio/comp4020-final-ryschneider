@@ -31,7 +31,7 @@ export function getRoom(slug: string): Room | undefined {
 }
 
 export function listRooms(): Room[] {
-  return db.select().from(rooms).orderBy(asc(rooms.createdAt)).all();
+  return db.select().from(rooms).orderBy(asc(rooms.title), asc(rooms.instance)).all();
 }
 
 export function listHeatMarks(slug: string): HeatMark[] {

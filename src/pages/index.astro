@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { listRooms } from "../lib/db";
+import { displayName } from "../lib/library";
 
 const rooms = listRooms();
 ---
@@ -26,8 +27,11 @@ const rooms = listRooms();
           <ul class="room-list">
             {rooms.map((room) => (
               <li>
-                <a href={`/room/${room.slug}/`}>{room.slug}</a>
-                <p class="room-excerpt">{room.text.slice(0, 120).trim()}&hellip;</p>
+                <a href={`/room/${room.slug}/`}>{displayName(room)}</a>
+                <p class="room-byline">
+                  a {room.kind} by {room.author}
+                </p>
+                <p class="room-excerpt">{room.description}</p>
               </li>
             ))}
           </ul>
@@ -128,6 +132,12 @@ const rooms = listRooms();
 
   .room-list a:hover {
     color: var(--ember);
+  }
+
+  .room-byline {
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    margin: 0.3rem 0 0;
   }
 
   .room-excerpt {

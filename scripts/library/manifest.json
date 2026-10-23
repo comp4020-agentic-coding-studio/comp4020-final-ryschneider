@@ -1,0 +1,272 @@
+[
+  {
+    "file": "001-macbeth.txt",
+    "slug": "macbeth",
+    "title": "Macbeth",
+    "author": "William Shakespeare",
+    "kind": "play",
+    "sourceNote": "Act 5, Scene 5 — the 'tomorrow and tomorrow' soliloquy",
+    "description": "Macbeth learns of his wife's death and answers it with the bleakest assessment of life in the play, right before his own end arrives."
+  },
+  {
+    "file": "002-dickinson-hope.txt",
+    "slug": "dickinson-hope",
+    "title": "Hope is the thing with feathers",
+    "author": "Emily Dickinson",
+    "kind": "poem",
+    "sourceNote": "Poem VI, Complete Poems (1924)",
+    "description": "A short extended metaphor comparing hope to a bird that never stops singing, never asks anything of you, and never truly leaves."
+  },
+  {
+    "file": "003-blake-tyger.txt",
+    "slug": "blake-tyger",
+    "title": "The Tyger",
+    "author": "William Blake",
+    "kind": "poem",
+    "sourceNote": "Songs of Experience (1794)",
+    "description": "A string of unanswered questions asking what kind of maker could forge something as fearsome and symmetrical as a tiger."
+  },
+  {
+    "file": "004-donne-death.txt",
+    "slug": "donne-death",
+    "title": "Death, be not proud",
+    "author": "John Donne",
+    "kind": "poem",
+    "sourceNote": "Holy Sonnet X",
+    "description": "A direct taunt aimed at Death itself, arguing it has no real power and will one day die too."
+  },
+  {
+    "file": "005-frost-road.txt",
+    "slug": "frost-road",
+    "title": "The Road Not Taken",
+    "author": "Robert Frost",
+    "kind": "poem",
+    "sourceNote": "Mountain Interval (1916)",
+    "description": "A traveler chooses between two nearly identical paths in a wood and only later decides to tell the story as if the choice mattered more than it did."
+  },
+  {
+    "file": "006-keats-nightingale.txt",
+    "slug": "keats-nightingale",
+    "title": "Ode to a Nightingale",
+    "author": "John Keats",
+    "kind": "poem",
+    "sourceNote": "Opening and closing stanzas, 1819",
+    "description": "The poet aches at the sound of a nightingale's song and wants to dissolve into it, then is startled back to himself by his own word 'forlorn.'"
+  },
+  {
+    "file": "007-poe-annabellee.txt",
+    "slug": "poe-annabel-lee",
+    "title": "Annabel Lee",
+    "author": "Edgar Allan Poe",
+    "kind": "poem",
+    "sourceNote": "First published 1849",
+    "description": "A narrator insists that his love for a dead girl was so total that even angels and demons cannot separate his soul from hers."
+  },
+  {
+    "file": "008-whitman-captain.txt",
+    "slug": "whitman-captain",
+    "title": "O Captain! My Captain!",
+    "author": "Walt Whitman",
+    "kind": "poem",
+    "sourceNote": "Leaves of Grass, written for Lincoln, 1865",
+    "description": "A sailor realizes, in the middle of a victory celebration, that the captain being cheered for is already dead on the deck beneath him."
+  },
+  {
+    "file": "009-tennyson-ulysses.txt",
+    "slug": "tennyson-ulysses",
+    "title": "Ulysses",
+    "author": "Alfred, Lord Tennyson",
+    "kind": "poem",
+    "sourceNote": "First published 1842",
+    "description": "An aging Ulysses, bored on the throne he fought to reclaim, decides to gather his old crew for one last voyage rather than grow old at home."
+  },
+  {
+    "file": "010-rossetti-remember.txt",
+    "slug": "rossetti-remember",
+    "title": "Remember",
+    "author": "Christina Rossetti",
+    "kind": "poem",
+    "sourceNote": "Goblin Market and Other Poems (1862)",
+    "description": "A sonnet asking to be remembered after death, which then reverses itself and says forgetting, if it brings a smile instead of grief, is better."
+  },
+  {
+    "file": "011-shelley-ozymandias.txt",
+    "slug": "shelley-ozymandias",
+    "title": "Ozymandias",
+    "author": "Percy Bysshe Shelley",
+    "kind": "poem",
+    "sourceNote": "First published 1818",
+    "description": "A traveler describes a ruined statue in the desert whose inscription boasts of power that has long since turned to sand on every side."
+  },
+  {
+    "file": "012-hamlet.txt",
+    "slug": "hamlet",
+    "title": "Hamlet",
+    "author": "William Shakespeare",
+    "kind": "play",
+    "sourceNote": "Act 3, Scene 1 — the 'to be, or not to be' soliloquy",
+    "description": "Hamlet weighs whether the pain of living is worse than the uncertainty of what comes after dying, and concludes that fear of the unknown is what keeps anyone going."
+  },
+  {
+    "file": "013-romeoandjuliet.txt",
+    "slug": "romeo-and-juliet",
+    "title": "Romeo and Juliet",
+    "author": "William Shakespeare",
+    "kind": "play",
+    "sourceNote": "Act 2, Scene 2 — the balcony scene",
+    "description": "Romeo watches Juliet appear at her window and talks himself into believing she outshines the sun, just before she wonders aloud why he has to be a Montague."
+  },
+  {
+    "file": "014-othello.txt",
+    "slug": "othello",
+    "title": "Othello",
+    "author": "William Shakespeare",
+    "kind": "play",
+    "sourceNote": "Act 5, Scene 2 — 'Put out the light'",
+    "description": "Othello stands over the sleeping Desdemona, talking himself into killing her even as he admits he cannot restore a light once it's out."
+  },
+  {
+    "file": "015-twelfthnight.txt",
+    "slug": "twelfth-night",
+    "title": "Twelfth Night",
+    "author": "William Shakespeare",
+    "kind": "play",
+    "sourceNote": "Act 1, Scene 1 — 'If music be the food of love'",
+    "description": "Duke Orsino asks for music to feed his lovesickness until it sickens and dies, then immediately asks the musicians to stop."
+  },
+  {
+    "file": "016-earnest.txt",
+    "slug": "importance-of-being-earnest",
+    "title": "The Importance of Being Earnest",
+    "author": "Oscar Wilde",
+    "kind": "play",
+    "sourceNote": "Act 1 — Lady Bracknell's interrogation of Jack",
+    "description": "Lady Bracknell interrogates Jack about his parentage and is horrified to learn he was discovered, as a baby, inside a handbag at a railway station."
+  },
+  {
+    "file": "017-faustus.txt",
+    "slug": "doctor-faustus",
+    "title": "Doctor Faustus",
+    "author": "Christopher Marlowe",
+    "kind": "play",
+    "sourceNote": "Act 5, Scene 1 — Faustus and the spirit of Helen",
+    "description": "Faustus, near the end of his bargain with the devil, kisses the conjured spirit of Helen of Troy and declares he would burn any city for her all over again."
+  },
+  {
+    "file": "018-dollshouse.txt",
+    "slug": "dolls-house",
+    "title": "A Doll's House",
+    "author": "Henrik Ibsen",
+    "kind": "play",
+    "sourceNote": "Act 3 — the final scene, translated 1879",
+    "description": "Nora returns her wedding ring, explains exactly why she can no longer be anyone's doll, and walks out the door for good."
+  },
+  {
+    "file": "019-juliuscaesar.txt",
+    "slug": "julius-caesar",
+    "title": "Julius Caesar",
+    "author": "William Shakespeare",
+    "kind": "play",
+    "sourceNote": "Act 3, Scene 2 — 'Friends, Romans, countrymen'",
+    "description": "Antony claims he has come only to bury Caesar, not to praise him, then spends the rest of the speech turning the crowd against the men who killed him."
+  },
+  {
+    "file": "020-asyoulikeit.txt",
+    "slug": "as-you-like-it",
+    "title": "As You Like It",
+    "author": "William Shakespeare",
+    "kind": "play",
+    "sourceNote": "Act 2, Scene 7 — 'All the world's a stage'",
+    "description": "Jaques lays out a life in seven acts, from a mewling infant to a second childhood with no teeth, eyes, taste, or anything else left."
+  },
+  {
+    "file": "021-prideandprejudice.txt",
+    "slug": "pride-and-prejudice",
+    "title": "Pride and Prejudice",
+    "author": "Jane Austen",
+    "kind": "book",
+    "sourceNote": "Chapter 1, 1813",
+    "description": "Mrs. Bennet badgers her husband with news of a rich new neighbor, already certain it means a husband for one of their daughters."
+  },
+  {
+    "file": "022-mobydick.txt",
+    "slug": "moby-dick",
+    "title": "Moby-Dick",
+    "author": "Herman Melville",
+    "kind": "book",
+    "sourceNote": "Chapter 1, 'Loomings,' 1851",
+    "description": "Ishmael explains that going to sea is his personal substitute for a more direct kind of self-destruction."
+  },
+  {
+    "file": "023-janeeyre.txt",
+    "slug": "jane-eyre",
+    "title": "Jane Eyre",
+    "author": "Charlotte Brontë",
+    "kind": "book",
+    "sourceNote": "Chapter 23, 1847",
+    "description": "Jane refuses to be treated as beneath feeling and insists, poor and plain as she is, that her soul and heart are exactly Rochester's equal."
+  },
+  {
+    "file": "024-frankenstein.txt",
+    "slug": "frankenstein",
+    "title": "Frankenstein",
+    "author": "Mary Shelley",
+    "kind": "book",
+    "sourceNote": "Chapter 5, 1818",
+    "description": "Victor Frankenstein watches the creature he spent two years assembling open its dull yellow eye for the first time, and is instantly disgusted by what he's made."
+  },
+  {
+    "file": "025-doriangray.txt",
+    "slug": "dorian-gray",
+    "title": "The Picture of Dorian Gray",
+    "author": "Oscar Wilde",
+    "kind": "book",
+    "sourceNote": "Chapter 2, 1890",
+    "description": "Dorian looks at his own freshly painted portrait and, in a moment of panic about aging, wishes aloud that the picture could grow old instead of him."
+  },
+  {
+    "file": "026-taleoftwocities.txt",
+    "slug": "tale-of-two-cities",
+    "title": "A Tale of Two Cities",
+    "author": "Charles Dickens",
+    "kind": "book",
+    "sourceNote": "Chapter 1, 1859",
+    "description": "A string of contradictions tries to describe an entire age at once, before settling into the ordinary business of two kings and two large jaws."
+  },
+  {
+    "file": "027-heartofdarkness.txt",
+    "slug": "heart-of-darkness",
+    "title": "Heart of Darkness",
+    "author": "Joseph Conrad",
+    "kind": "book",
+    "sourceNote": "Part 3, 1899",
+    "description": "Marlow watches Kurtz's face change in his final moments as he seems to relive his whole life before crying out his last words."
+  },
+  {
+    "file": "028-yellowwallpaper.txt",
+    "slug": "yellow-wallpaper",
+    "title": "The Yellow Wallpaper",
+    "author": "Charlotte Perkins Gilman",
+    "kind": "book",
+    "sourceNote": "Opening, 1892",
+    "description": "A woman confined to a rented summer house for her health insists something is wrong with the place, while her husband refuses to believe she's actually sick."
+  },
+  {
+    "file": "029-wutheringheights.txt",
+    "slug": "wuthering-heights",
+    "title": "Wuthering Heights",
+    "author": "Emily Brontë",
+    "kind": "book",
+    "sourceNote": "Chapter 9, 1847",
+    "description": "Catherine tries to explain to Nelly why marrying someone else won't change anything, because her bond with Heathcliff isn't a preference but her own being."
+  },
+  {
+    "file": "030-dracula.txt",
+    "slug": "dracula",
+    "title": "Dracula",
+    "author": "Bram Stoker",
+    "kind": "book",
+    "sourceNote": "Chapter 2, Jonathan Harker's journal, 1897",
+    "description": "Jonathan Harker meets Count Dracula for the first time at the castle door, and is unsettled by a handshake as cold as a dead man's."
+  }
+]

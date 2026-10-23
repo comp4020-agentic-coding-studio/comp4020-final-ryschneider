@@ -39,11 +39,11 @@ COPY --from=build /app/dist /app/dist
 COPY --from=build /app/drizzle /app/drizzle
 COPY README.md /app/README.md
 # rooms are seeded by hand: `flyctl ssh console -a <app-name>`, then
-# `node scripts/seed-room.ts <slug> <path>` --- these two files plus
-# fixtures/demo.txt are what that needs once deployed
-COPY --from=build /app/scripts/seed-room.ts /app/scripts/seed-room.ts
+# `node scripts/seed-from-library.ts <text-slug>` --- these are what that
+# needs once deployed
+COPY --from=build /app/scripts/seed-from-library.ts /app/scripts/seed-from-library.ts
+COPY --from=build /app/scripts/library /app/scripts/library
 COPY --from=build /app/src/lib/schema.ts /app/src/lib/schema.ts
-COPY fixtures/demo.txt /app/fixtures/demo.txt
 
 # fly.toml sets PORT (0.0.0.0:$PORT is what Fly's proxy forwards to)
 ENV HOST=0.0.0.0

@@ -18,8 +18,12 @@ fades: it's deleted from memory and replaced by a permanent, anonymous,
 position-only "heat" contribution — no content, no author. There is no
 decay after that; a heat mark, once created, never changes.
 
-Rooms are **seeded by hand** (`scripts/seed-room.ts`), never created through
-the app itself.
+Rooms are **seeded by hand** (`scripts/seed-from-library.ts`), never created
+through the app itself, and each one is an instance of a fixed library text
+(`scripts/library/`) — not arbitrary content. A room is titled after its
+work and a per-work instance number, e.g. "Macbeth #0001"; seeding the same
+work again makes a separate, independent room ("Macbeth #0002") rather than
+updating the first. See "The text library" below.
 
 **Logging in happens once, on the homepage, not per room.** "Logging in" is
 giving yourself a name for the session — no account, no password. The name is
@@ -256,24 +260,84 @@ class of bug, since both depend on the browser's CSS cascade and the DOM
 actually being built by JS. Trust a real rendered page over a static HTML
 diff when touching anything `hidden`-toggled or client-rendered.
 
+## The text library — `scripts/library/`
+
+Every room is an instance of a fixed, curated **text**, not an arbitrary
+file. `scripts/library/manifest.json` is an array of entries
+(`slug`, `title`, `author`, `kind` — `"poem" | "play" | "book"` —,
+`sourceNote`, `description`, `file`), one per work; the actual excerpt text
+for each lives alongside it in `scripts/library/texts/<file>`. This is a
+build-time asset (committed to the repo, read by the seed script), not a
+database table — there is deliberately no "add a text through the app" path,
+matching the existing "rooms are seeded by hand" rule.
+
+A room is one **instance** of a library entry: seeding `macbeth` the first
+time makes a room titled "Macbeth #0001" at `/room/macbeth-0001/`; seeding it
+again makes a separate room, "Macbeth #0002", with its own independent live
+state and heat — the two never share presence, notes, or history. `rooms`
+stores a copy of the entry's title/author/kind/sourceNote/description at
+seed time (`src/lib/schema.ts`), not a foreign key to the manifest, so a
+room's displayed metadata is exactly what it was seeded with even if the
+manifest is edited afterward — editing `manifest.json` only affects rooms
+seeded *after* the edit. `src/lib/library.ts`'s `displayName()` is the single
+place the `"<title> #<instance, zero-padded to 4>"` format is computed; use
+it rather than reassembling the string elsewhere.
+
+**Line breaks matter and differ by `kind`.** The room page renders `text`
+verbatim with `white-space: pre-line` (see the room page's styles) and
+`src/lib/paragraphs.ts` splits on blank lines only — every `\n` already in
+the stored text becomes a visible line break, and nothing reflows at render
+time (offsets in `heat_marks` and live notes are measured against the exact
+stored string, so reflowing after the fact would desync them from what a
+viewer sees). That's correct and wanted for `"poem"` and `"play"` entries,
+where the line breaks ARE the content's real structure. It is wrong for
+`"book"` entries: Project Gutenberg's plain-text editions hard-wrap prose at
+~70 characters with no paragraph-internal structure to preserve, and copying
+that straight into a text file renders every wrap as a spurious line break
+mid-sentence. Every `"book"` entry in this library had its hard-wrapped
+lines rejoined into flowing paragraphs (one `\n` is still a stated line
+break, so only genuine blank-line-separated blocks were touched; dialogue
+that Gutenberg already set off with blank lines was left as separate
+blocks) before being committed — if you add a new `"book"` entry, reflow it
+the same way before saving the file, not after it's already live in a room.
+
 ## Seeding — local and production, same command
 
-`node scripts/seed-room.ts <slug> <path-to-text-file>`, upserts a room.
-This script deliberately does **not** import `src/lib/db.ts` (which is only
-ever imported through Astro's Vite bundler, and runs `migrate()` as an
+`node scripts/seed-from-library.ts <text-slug>` (slugs come from
+`manifest.json`; running the script with no argument lists them). It looks
+up the entry, reads its text file, computes the next instance number for
+that `text-slug` (one more than the highest existing `instance` for it, or 1
+if none exist — `rooms` has a unique index on `(textSlug, instance)` so this
+can never collide), and inserts a brand-new room — never updates an existing
+one, unlike the retired single-file version of this script. This script
+deliberately does **not** import `src/lib/db.ts` (which is only ever
+imported through Astro's Vite bundler, and runs `migrate()` as an
 import-time side effect) — it sets up its own tiny better-sqlite3/drizzle
 connection, importing `src/lib/schema.ts` directly with an **explicit `.ts`
 extension**, because this script runs under plain Node, where relative
 imports need the extension spelled out (see `tsconfig.json`'s
 `allowImportingTsExtensions` comment).
 
-For production: the Dockerfile copies `scripts/seed-room.ts`,
-`src/lib/schema.ts`, and `fixtures/demo.txt` into the runtime image
+For production: the Dockerfile copies `scripts/seed-from-library.ts`,
+`scripts/library/`, and `src/lib/schema.ts` into the runtime image
 specifically so this works unchanged against the real Fly volume via
-`flyctl ssh console -a <app-name> -C "node scripts/seed-room.ts <slug> <path>"`.
+`flyctl ssh console -a <app-name> -C "node scripts/seed-from-library.ts <text-slug>"`.
 If you add a script that needs to run against the production database, this
 is the pattern to copy — don't invent an admin HTTP endpoint for it; rooms
 are seeded by hand on purpose.
+
+**Migration note** (`drizzle/0001_*.sql`): adding the metadata columns as
+`NOT NULL` with no default meant the migration itself had to `DELETE FROM
+heat_marks` and `DELETE FROM rooms` first — SQLite's `ALTER TABLE ADD COLUMN`
+refuses a `NOT NULL` column with no default on a non-empty table, and the
+one room that could exist before this migration (the old ad-hoc `demo` room
+from the retired single-file seed script) predates the library and has no
+real values to backfill those columns with. This was verified against a
+simulated pre-migration database (an existing room + a heat mark) before
+shipping, specifically so it wouldn't crash `migrate()` at boot against the
+real production volume, which had exactly that old row. If you're ever
+tempted to add another `NOT NULL`-no-default column to a table that might
+already hold rows, this is the failure mode to check for first.
 
 ## Known limitations (deliberate, not bugs)
 
@@ -304,7 +368,8 @@ are seeded by hand on purpose.
 | Change how notes/heat render | `src/scripts/margins-client.ts` (client), `src/lib/heat.ts` (shared density math) |
 | Change colors, type, or spacing | `src/styles/global.css` tokens — not per-page overrides |
 | Style something margins-client.ts builds with `createElement` | needs `:global()` in that page's `<style>` — see "Design system" above |
-| Seed or reseed a room | `scripts/seed-room.ts`; production via `flyctl ssh console` (see above) |
+| Add, edit, or remove a library text | `scripts/library/manifest.json` + `scripts/library/texts/` — editing an existing entry only affects rooms seeded afterward |
+| Seed a new room from the library | `scripts/seed-from-library.ts <text-slug>`; production via `flyctl ssh console` (see above) |
 | Know what's mechanically checked vs. judged by a person | `spec/README.md` |
 | Know what's fixed about the deploy vs. what's this app's choice | `fly.toml`, `Dockerfile` (both have comments marking the line) |
 | The published brief/spec for this week | the course site — CLAUDE.md links it |
