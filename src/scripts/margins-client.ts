@@ -24,7 +24,7 @@ type ServerEvent =
 
 const LOCATION_THROTTLE_MS = 400;
 
-export function initRoom(): void {
+export function initRoom(handle: string): void {
   const dataEl = document.getElementById("room-data");
   const data = JSON.parse(dataEl?.textContent ?? "null") as RoomData | null;
   if (!data) return;
@@ -34,16 +34,16 @@ export function initRoom(): void {
   const presence = new Map<string, number | null>();
   const notes = new Map<number, LiveNoteView>();
 
-  const gate = document.getElementById("join-gate") as HTMLFormElement | null;
-  const roomEl = document.getElementById("room");
   const presenceEl = document.getElementById("presence");
   const textEl = document.getElementById("room-text");
-  if (!gate || !roomEl || !presenceEl || !textEl) return;
+  if (!presenceEl || !textEl) return;
 
   const paragraphEls = [...textEl.querySelectorAll<HTMLElement>("[data-start]")];
 
-  let connectionId = "";
-  let handle = "";
+  // The name was already given on the homepage (see src/lib/session.ts) ---
+  // this connection just needs a fresh per-tab id to distinguish it from
+  // any other open tab using the same name.
+  const connectionId = crypto.randomUUID();
   let joined = false;
   let lastSentOffset: number | null = null;
   let lastSentAt = 0;
@@ -191,16 +191,7 @@ export function initRoom(): void {
     };
   }
 
-  gate.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const input = gate.querySelector<HTMLInputElement>('input[name="handle"]');
-    const value = input?.value.trim();
-    if (!value) return;
-    handle = value;
-    connectionId = crypto.randomUUID();
-    gate.hidden = true;
-    connect();
-  });
+  connect();
 
   // Reading location: a loose, best-effort signal only --- throttled, and
   // never sent before the server has confirmed we've joined.

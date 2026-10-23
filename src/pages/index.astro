@@ -10,22 +10,68 @@ const rooms = listRooms();
     <h1>Margins</h1>
     <p class="lede">A small group reads one short text together, live.</p>
 
-    {
-      rooms.length === 0 ? (
-        <p>No rooms yet.</p>
-      ) : (
-        <ul class="room-list">
-          {rooms.map((room) => (
-            <li>
-              <a href={`/room/${room.slug}/`}>{room.slug}</a>
-              <p class="room-excerpt">{room.text.slice(0, 120).trim()}&hellip;</p>
-            </li>
-          ))}
-        </ul>
-      )
-    }
+    <form id="login-gate">
+      <label>
+        Your name for this visit
+        <input name="handle" required maxlength="40" autocomplete="off" />
+      </label>
+      <button type="submit">Continue</button>
+    </form>
+
+    <div id="rooms" hidden>
+      {
+        rooms.length === 0 ? (
+          <p>No rooms yet.</p>
+        ) : (
+          <ul class="room-list">
+            {rooms.map((room) => (
+              <li>
+                <a href={`/room/${room.slug}/`}>{room.slug}</a>
+                <p class="room-excerpt">{room.text.slice(0, 120).trim()}&hellip;</p>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
 
     <p class="about-link"><a href="/readme/">About this app</a></p>
+
+    <script>
+      import { getHandle, setHandle } from "../lib/session";
+
+      const gate = document.getElementById("login-gate") as HTMLFormElement;
+      const roomsEl = document.getElementById("rooms")!;
+
+      // A room page redirects here with ?next=/room/<slug>/ when it finds no
+      // name for the session yet; once one's given, send the visitor back to
+      // the room they actually wanted instead of stopping at the room list.
+      // Restricted to an in-app room path --- next is attacker-controlled
+      // (anyone can craft a link to this page with any ?next value), and
+      // handing it straight to location.replace would be an open redirect.
+      const rawNext = new URLSearchParams(location.search).get("next");
+      const next = rawNext && /^\/room\/[^/]+\/$/.test(rawNext) ? rawNext : null;
+
+      function show(): void {
+        gate.hidden = true;
+        roomsEl.hidden = false;
+      }
+
+      if (getHandle()) {
+        if (next) location.replace(next);
+        else show();
+      }
+
+      gate.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const input = gate.querySelector<HTMLInputElement>('input[name="handle"]');
+        const value = input?.value.trim();
+        if (!value) return;
+        setHandle(value);
+        if (next) location.replace(next);
+        else show();
+      });
+    </script>
   </main>
 </Layout>
 
@@ -35,6 +81,29 @@ const rooms = listRooms();
     font-size: 1.15rem;
     color: var(--ink-muted);
     max-width: var(--measure);
+  }
+
+  #login-gate {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin: var(--space-3) 0 var(--space-4);
+    font-size: 0.95rem;
+  }
+
+  #login-gate[hidden] {
+    display: none;
+  }
+
+  #login-gate label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    color: var(--ink-muted);
+  }
+
+  #login-gate input {
+    min-width: 12rem;
   }
 
   .room-list {
@@ -74,5 +143,12 @@ const rooms = listRooms();
 
   .about-link a {
     color: var(--ink-muted);
+  }
+
+  @media (max-width: 42rem) {
+    #login-gate {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 </style>

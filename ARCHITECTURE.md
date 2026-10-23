@@ -21,6 +21,16 @@ decay after that; a heat mark, once created, never changes.
 Rooms are **seeded by hand** (`scripts/seed-room.ts`), never created through
 the app itself.
 
+**Logging in happens once, on the homepage, not per room.** "Logging in" is
+giving yourself a name for the session — no account, no password. The name is
+stored in `sessionStorage` (`src/lib/session.ts`) and carries to any room
+visited afterwards without asking again. A room URL opened with no name
+stored yet (a fresh tab, a shared link opened cold) redirects to `/` with
+`?next=<room path>`, and back again once a name is given — see "Routes"
+below. This is a deliberate reversal from this app's earlier state, where a
+stranger could read a room's text with no name at all; now reading requires
+having named yourself on the homepage first, same as everything else.
+
 ## Deploy shape (fixed by the course, not by this app)
 
 One Fly machine (`shared-cpu-1x`, 256MB), one persistent volume at `/data`,
@@ -119,17 +129,33 @@ single-file SQLite DB break down together, and that's a real rearchitecture
 
 ## Routes
 
+- `src/pages/index.astro` — SSR, the only place a name is given. Renders a
+  login form and (hidden until a name exists) the room list in the same
+  page; a tiny inline script checks `getHandle()` (`src/lib/session.ts`) on
+  load and shows whichever half applies. Reads `?next=<room path>` and, once
+  a name is set (or already was), redirects there instead of showing the
+  room list — this is how a cold visit to a room URL completes. `next` is
+  validated against `^/room/[^/]+/$` before ever reaching
+  `location.replace`; it's attacker-controlled (anyone can craft a link to
+  this page with any `?next`), so an unvalidated value would be an open
+  redirect.
 - `src/pages/room/[slug]/index.astro` — SSR. 404s if the room doesn't exist.
   Splits the room's text into offset-tracked paragraphs
   (`src/lib/paragraphs.ts`), renders the persisted heat density
-  (`src/lib/heat.ts`) server-side — **this is what makes the "trace" visible
-  to a stranger with no JS at all**, which matters for the course's actual
-  proof-of-life bar. Embeds the paragraph table + heat marks as JSON for the
-  client script to consume without re-deriving offsets from a DOM that notes
-  will mutate.
+  (`src/lib/heat.ts`) server-side. A room-page inline script checks
+  `getHandle()`; with no name stored it redirects to `/?next=<this path>`
+  rather than rendering anything live. **This means the SSR'd text is only
+  reachable past a name prompt now** — see the note in "What the app does"
+  above; it's a deliberate product change, not an oversight, but it's worth
+  knowing this file no longer hands a stranger the text with zero
+  interaction, which an earlier version of this document took as settled.
+  Embeds the paragraph table + heat marks as JSON for the client script to
+  consume without re-deriving offsets from a DOM that notes will mutate.
 - `GET /api/room/[slug]/events` — the SSE stream. Query params
-  `connectionId` (client-generated, per-tab), `handle` (typed fresh each
-  visit, never persisted).
+  `connectionId` (client-generated, fresh per tab/connection — see
+  "Client" below for why one tab is always one connection even though the
+  name is shared across tabs), `handle` (read from the query string, sourced
+  client-side from `sessionStorage`, not re-prompted per room).
 - `POST /api/room/[slug]/location` — body `{connectionId, offset}`. Handle is
   always resolved server-side from `connectionId`; never trust a
   client-supplied handle on a per-request basis.
@@ -142,8 +168,19 @@ single-file SQLite DB break down together, and that's a real rearchitecture
 ## Client — `src/scripts/margins-client.ts`
 
 Imported directly by the room page's inline `<script>` (Vite bundles it, same
-pattern as every other local-module import in this template). Key choices,
-not obvious from the code alone:
+pattern as every other local-module import in this template). `initRoom(handle)`
+takes the name as a parameter — it's resolved (and the redirect-home decision
+made) by the room page's own inline script before `initRoom` is ever called,
+so this module has no awareness of login at all; it just connects
+immediately on load with whatever name it was given, where it used to wait
+for a per-room join form submit. `connectionId` is still generated fresh per
+call (`crypto.randomUUID()`) — a name is shared across every tab via
+`sessionStorage`, but each open tab is still its own SSE connection and
+needs its own id, which is exactly what `src/lib/rooms.ts`'s presence dedupe
+(`presence: Map<handle, Set<connectionId>>`) already expects: one handle, a
+set of connections.
+
+Key choices, not obvious from the code alone:
 
 - **Offset math** walks `Selection.anchorNode`/`focusNode` up to the nearest
   `[data-start]` paragraph ancestor, then uses a `TreeWalker` scoped to just
@@ -184,21 +221,23 @@ Two real bugs this surfaced, both easy to reintroduce:
   selector that sets `display` on an element also toggled via the `hidden`
   property/attribute needs an explicit `selector[hidden] { display: none; }`
   rule, or both states render at once the moment that selector's `display`
-  declaration exists. This bit `#join-gate` silently until a real
-  headless-browser screenshot caught it — `curl`/`astro check`/`vitest`
-  never would, since none of them execute CSS cascade + the `hidden` IDL
-  property together. (`.room`/`#room-text` are **never** hidden at all —
-  see below, that was a related but separate bug.)
-- **The room text renders unconditionally, with or without joining.** An
-  earlier version wrapped `#room-text` in the same hidden-until-joined `div`
-  as the presence sidebar. Combined with the bug above, that accidentally
-  rendered correctly (the hidden toggle was broken, so the text showed
-  anyway) until the `[hidden]` fix made the gate actually work --- which then
-  hid the text behind a mandatory name prompt, contradicting the "a stranger
-  can visit and see the trace" proof-of-life requirement this file already
-  documented. Only `#join-gate` and the live features behind it (presence,
-  writing notes) are gated; the text and its persisted heat are not, and
-  should never be.
+  declaration exists. This bit the old per-room `#join-gate` form silently
+  until a real headless-browser screenshot caught it —
+  `curl`/`astro check`/`vitest` never would, since none of them execute CSS
+  cascade + the `hidden` IDL property together. (`#join-gate` no longer
+  exists — login moved to the homepage, see "What the app does" — but
+  `#login-gate` on `src/pages/index.astro` is the same pattern and needs the
+  same rule if it's ever touched.)
+- **Historical note, no longer applicable as described:** an earlier version
+  briefly hid the room text behind the per-room join form, which contradicted
+  this app's original "a stranger can visit and see the trace with zero
+  interaction" proof-of-life requirement; that version was reverted so the
+  text rendered unconditionally again. Login has since moved to the homepage
+  entirely (see "What the app does"), which supersedes that requirement on
+  purpose: reading a room now does require having named yourself first,
+  homepage-first. Mentioned here only so the history makes sense — don't
+  resurrect the old "text visible with zero interaction" behavior based on
+  this paragraph alone.
 - **`margins-client.ts` creates `<mark>` and the presence `<ul>`/`<li>` via
   `document.createElement`, not Astro's template** — so they never receive
   Astro's scoped-style attribute, and a plain scoped selector
@@ -260,6 +299,7 @@ are seeded by hand on purpose.
 |---|---|
 | Change the schema | `src/lib/schema.ts`, then `pnpm db:generate` |
 | Touch presence/notes/propagation/fade logic | `src/lib/rooms.ts` — read the invariant above first |
+| Touch login / the session name | `src/lib/session.ts`, `src/pages/index.astro` — not the room page, login lives on the homepage only |
 | Add a route | `src/pages/api/room/[slug]/` for API shape, `src/pages/room/[slug]/index.astro` for the page |
 | Change how notes/heat render | `src/scripts/margins-client.ts` (client), `src/lib/heat.ts` (shared density math) |
 | Change colors, type, or spacing | `src/styles/global.css` tokens — not per-page overrides |
