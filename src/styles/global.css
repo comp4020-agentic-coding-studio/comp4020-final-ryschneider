@@ -22,6 +22,11 @@
   --font-sans: "Work Sans", system-ui, -apple-system, sans-serif;
 
   --measure: 34rem; /* ~65-70 characters at body size */
+  /* Only the room page needs more than --measure: its text column sits
+     beside a presence sidebar. Every other page's .page is --measure
+     itself, so prose fills its container instead of floating flush-left
+     inside a wider box with dead space to its right. */
+  --room-width: calc(var(--measure) + var(--space-4) + 12rem);
   --space-1: 0.5rem;
   --space-2: 1rem;
   --space-3: 1.75rem;
@@ -121,8 +126,18 @@ input:focus {
   font-family: var(--font-sans);
   font-size: 0.9rem;
   padding: var(--space-3) var(--space-2) 0;
-  max-width: 56rem;
+  max-width: var(--measure);
   margin: 0 auto;
+}
+
+/* The room page's two-column text+sidebar needs --room-width. .site-nav
+   comes BEFORE .room-page in the DOM (the layout's nav, then <slot />), so
+   matching it needs :has() with a forward-looking relative selector, not a
+   plain ~ combinator --- this widens the nav to match so it stays aligned
+   with the wider content below it, rather than sitting at --measure above
+   a wider page. */
+.site-nav:has(~ .room-page) {
+  max-width: var(--room-width);
 }
 
 .site-nav a {
@@ -130,7 +145,7 @@ input:focus {
 }
 
 .page {
-  max-width: 56rem;
+  max-width: var(--measure);
   margin: 0 auto;
   padding: var(--space-2) var(--space-2) var(--space-4);
 }

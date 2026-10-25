@@ -69,6 +69,12 @@ const roomData = { slug, paragraphs, heatMarks };
 </Layout>
 
 <style>
+  /* .page defaults to --measure (global.css); this page is the one exception
+     that needs more room, for the text+sidebar grid below. */
+  .room-page {
+    max-width: var(--room-width);
+  }
+
   .room-header {
     margin-bottom: var(--space-4);
   }
@@ -96,11 +102,6 @@ const roomData = { slug, paragraphs, heatMarks };
     grid-template-columns: minmax(0, var(--measure)) 12rem;
     gap: var(--space-4);
     align-items: start;
-    /* The text+margin unit centers as a whole, rather than the text column
-       centering on its own and leaving a lopsided gap where the margin
-       column happens to be empty. */
-    max-width: calc(var(--measure) + var(--space-4) + 12rem);
-    margin: 0 auto;
   }
 
   .room-text {
@@ -188,7 +189,6 @@ const roomData = { slug, paragraphs, heatMarks };
   @media (max-width: 42rem) {
     .room {
       grid-template-columns: 1fr;
-      max-width: var(--measure);
     }
 
     .margin-notes {

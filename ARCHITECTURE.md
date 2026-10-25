@@ -233,6 +233,25 @@ product's own two kinds of attention (warm `--ember` = faded/past, cool
 page, `readme/index.astro`) so the three stay visually consistent. Change a
 token in one place, not per-page.
 
+**Page width is one token, widened only where needed.** `.page` (every
+page's outer container) is `max-width: var(--measure)` — the reading width,
+not a wider generic "page" width — so prose fills it instead of floating
+flush-left inside extra space. `--room-width` (`--measure` + the sidebar's
+gap and width) exists only for the room page, which is the one page with a
+genuine reason to be wider: `.room-page` sets its own `max-width:
+var(--room-width)`, and `.site-nav:has(~ .room-page)` widens the nav to
+match, since the nav sits *before* the page content in the DOM (the
+layout's nav, then `<slot />`) — a plain `~`/`+` combinator can't reach
+forward like that, only `:has()` with a relative selector can. If you add
+another page that genuinely needs more than `--measure`, follow this
+pattern (a page-specific class widening both `.page` and matching the nav
+via `:has()`) rather than hand-rolling a new `max-width` on some inner
+element — that's exactly the bug this fixed: several elements independently
+capped themselves at `--measure` *inside* an outer container that was wider
+still (`56rem`, hardcoded, matching nothing else), so they sat flush-left
+with dead space to their right instead of actually filling or centering in
+the page.
+
 Two real bugs this surfaced, both easy to reintroduce:
 
 - **An author `display` always beats the `[hidden]` UA default.** Any
