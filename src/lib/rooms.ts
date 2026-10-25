@@ -71,6 +71,14 @@ export function getSnapshot(slug: string): Snapshot {
   };
 }
 
+// Distinct handles currently present, for the homepage's room list. Reads
+// the same live map everything else here does --- a room with no open
+// connections (never in roomStates, or removed once empty) is correctly 0,
+// no separate "room exists" check needed.
+export function presenceCount(slug: string): number {
+  return roomStates.get(slug)?.presence.size ?? 0;
+}
+
 export function join(slug: string, connectionId: string, handle: string): void {
   const r = room(slug);
   r.connectionHandles.set(connectionId, handle);

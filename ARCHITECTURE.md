@@ -142,7 +142,21 @@ single-file SQLite DB break down together, and that's a real rearchitecture
   validated against `^/room/[^/]+/$` before ever reaching
   `location.replace`; it's attacker-controlled (anyone can craft a link to
   this page with any `?next`), so an unvalidated value would be an open
-  redirect.
+  redirect. Each listed room also shows a live presence count
+  (`presenceCount()`, `src/lib/rooms.ts` — reads the same in-memory map the
+  SSE layer does, so it's exact at the moment of the request, snapshot-only:
+  it does **not** update while the page stays open, matching the rest of
+  this page's SSR-once behavior), its creation date, and when it was last
+  annotated (`listRoomsWithActivity()`, `src/lib/db.ts` — the latest
+  `heat_marks.createdAt` for that room, falling back to the room's own
+  `createdAt` if it's never had a note fade; **not** derived from mere
+  presence/joining/moving, by design). `src/lib/library.ts`'s
+  `parseSqliteTimestamp()` is load-bearing here: SQLite's `datetime('now')`
+  writes `"YYYY-MM-DD HH:MM:SS"` with no timezone marker, and `new
+  Date(...)` on that string parses it as **local** time, not the UTC it
+  actually is — silently wrong by the server's UTC offset. Every place that
+  turns a stored timestamp into a `Date` goes through that function, or
+  `timeAgo()`/`formatDate()` which already do.
 - `src/pages/room/[slug]/index.astro` — SSR. 404s if the room doesn't exist.
   Splits the room's text into offset-tracked paragraphs
   (`src/lib/paragraphs.ts`), renders the persisted heat density
@@ -356,6 +370,18 @@ already hold rows, this is the failure mode to check for first.
   (raw SSE connections, scripted join/write/leave sequences) against both a
   local build and the actual deployed Fly app before shipping — see
   PROCESS.md for how, if that's been written up.
+- **Possible gap, not confirmed as a real bug**: while testing the homepage's
+  room-stats feature, a `curl`-based SSE client killed via `pkill` left its
+  handle showing as present indefinitely (no `leave()` ever fired), while
+  the same scenario driven through a real browser tab closed via DevTools'
+  `Page.close` triggered `cancel()`/`leave()` correctly within about a
+  second. This may just be `pkill`'s SIGTERM not producing a clean stream
+  close the way a browser's connection teardown does, rather than anything
+  wrong in `src/pages/api/room/[slug]/events.ts` itself — it wasn't chased
+  further since it's outside what was asked for here. If "a room that looks
+  occupied forever" ever gets reported for real, start by checking whether
+  the departing client's connection closed cleanly (network drop, tab
+  killed by the OS, etc. — not just "navigated away" or "closed the tab").
 
 ## Where to look
 
@@ -367,6 +393,7 @@ already hold rows, this is the failure mode to check for first.
 | Add a route | `src/pages/api/room/[slug]/` for API shape, `src/pages/room/[slug]/index.astro` for the page |
 | Change how notes/heat render | `src/scripts/margins-client.ts` (client), `src/lib/heat.ts` (shared density math) |
 | Change colors, type, or spacing | `src/styles/global.css` tokens — not per-page overrides |
+| Touch the homepage's per-room stats (presence/created/last-annotated) | `presenceCount()` in `src/lib/rooms.ts`, `listRoomsWithActivity()` in `src/lib/db.ts`, formatting in `src/lib/library.ts` — always go through `parseSqliteTimestamp()` for any stored timestamp, never `new Date(stored)` directly |
 | Style something margins-client.ts builds with `createElement` | needs `:global()` in that page's `<style>` — see "Design system" above |
 | Add, edit, or remove a library text | `scripts/library/manifest.json` + `scripts/library/texts/` — editing an existing entry only affects rooms seeded afterward |
 | Seed a new room from the library | `scripts/seed-from-library.ts <text-slug>`; production via `flyctl ssh console` (see above) |

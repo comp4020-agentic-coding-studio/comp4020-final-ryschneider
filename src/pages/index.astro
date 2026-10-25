@@ -1,9 +1,10 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { listRooms } from "../lib/db";
-import { displayName } from "../lib/library";
+import { listRoomsWithActivity } from "../lib/db";
+import { displayName, formatDate, timeAgo } from "../lib/library";
+import { presenceCount } from "../lib/rooms";
 
-const rooms = listRooms();
+const rooms = listRoomsWithActivity();
 ---
 
 <Layout title="Margins">
@@ -25,15 +26,23 @@ const rooms = listRooms();
           <p>No rooms yet.</p>
         ) : (
           <ul class="room-list">
-            {rooms.map((room) => (
-              <li>
-                <a href={`/room/${room.slug}/`}>{displayName(room)}</a>
-                <p class="room-byline">
-                  a {room.kind} by {room.author}
-                </p>
-                <p class="room-excerpt">{room.description}</p>
-              </li>
-            ))}
+            {
+              rooms.map((room) => {
+                const here = presenceCount(room.slug);
+                return (
+                  <li>
+                    <a href={`/room/${room.slug}/`}>{displayName(room)}</a>
+                    <p class="room-byline">
+                      a {room.kind} by {room.author}
+                    </p>
+                    <p class="room-excerpt">{room.description}</p>
+                    <p class="room-stats">
+                      {here === 0 ? "No one here right now" : here === 1 ? "1 person here now" : `${here} people here now`}, started {formatDate(room.createdAt)}, last annotated {timeAgo(room.lastActivityAt)}.
+                    </p>
+                  </li>
+                );
+              })
+            }
           </ul>
         )
       }
@@ -145,6 +154,12 @@ const rooms = listRooms();
     color: var(--ink-muted);
     margin: 0.35rem 0 0;
     max-width: var(--measure);
+  }
+
+  .room-stats {
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    margin: 0.5rem 0 0;
   }
 
   .about-link {
