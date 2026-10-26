@@ -21,11 +21,11 @@
   --font-serif: "Literata", Georgia, "Times New Roman", serif;
   --font-sans: "Work Sans", system-ui, -apple-system, sans-serif;
 
-  --measure: 34rem; /* ~65-70 characters at body size */
-  /* Only the room page needs more than --measure: its text column sits
-     beside a presence sidebar. Every other page's .page is --measure
-     itself, so prose fills its container instead of floating flush-left
-     inside a wider box with dead space to its right. */
+  --measure: 34rem; /* ~65-70 characters at body size, for actual prose */
+  --page-width: 56rem; /* the page's own outer width --- room to breathe,
+    not a reading measure. Anything that wants --measure inside a page this
+    wide needs its own `margin: 0 auto` to center as an island; max-width
+    alone just leaves it flush-left with dead space to its right. */
   --room-width: calc(var(--measure) + var(--space-4) + 12rem);
   --space-1: 0.5rem;
   --space-2: 1rem;
@@ -126,16 +126,16 @@ input:focus {
   font-family: var(--font-sans);
   font-size: 0.9rem;
   padding: var(--space-3) var(--space-2) 0;
-  max-width: var(--measure);
+  max-width: var(--page-width);
   margin: 0 auto;
 }
 
-/* The room page's two-column text+sidebar needs --room-width. .site-nav
-   comes BEFORE .room-page in the DOM (the layout's nav, then <slot />), so
-   matching it needs :has() with a forward-looking relative selector, not a
-   plain ~ combinator --- this widens the nav to match so it stays aligned
-   with the wider content below it, rather than sitting at --measure above
-   a wider page. */
+/* The room page's two-column text+sidebar needs --room-width, wider than
+   the default --page-width. .site-nav comes BEFORE .room-page in the DOM
+   (the layout's nav, then <slot />), so matching it needs :has() with a
+   forward-looking relative selector, not a plain ~ combinator --- this
+   widens the nav to match so it stays aligned with the wider content below
+   it, rather than sitting at --page-width above a wider page. */
 .site-nav:has(~ .room-page) {
   max-width: var(--room-width);
 }
@@ -145,14 +145,17 @@ input:focus {
 }
 
 .page {
-  max-width: var(--measure);
+  max-width: var(--page-width);
   margin: 0 auto;
   padding: var(--space-2) var(--space-2) var(--space-4);
 }
 
-/* Rendered README content at /readme/ */
+/* Rendered README content at /readme/: centers itself at the reading
+   measure inside the wider .page, rather than just capping its width and
+   sitting flush-left with dead space to the right. */
 .prose {
   max-width: var(--measure);
+  margin: 0 auto;
   font-family: var(--font-serif);
   font-size: 1.05rem;
   line-height: 1.65;

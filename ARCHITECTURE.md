@@ -233,24 +233,47 @@ product's own two kinds of attention (warm `--ember` = faded/past, cool
 page, `readme/index.astro`) so the three stay visually consistent. Change a
 token in one place, not per-page.
 
-**Page width is one token, widened only where needed.** `.page` (every
-page's outer container) is `max-width: var(--measure)` — the reading width,
-not a wider generic "page" width — so prose fills it instead of floating
-flush-left inside extra space. `--room-width` (`--measure` + the sidebar's
-gap and width) exists only for the room page, which is the one page with a
-genuine reason to be wider: `.room-page` sets its own `max-width:
-var(--room-width)`, and `.site-nav:has(~ .room-page)` widens the nav to
-match, since the nav sits *before* the page content in the DOM (the
-layout's nav, then `<slot />`) — a plain `~`/`+` combinator can't reach
-forward like that, only `:has()` with a relative selector can. If you add
-another page that genuinely needs more than `--measure`, follow this
-pattern (a page-specific class widening both `.page` and matching the nav
-via `:has()`) rather than hand-rolling a new `max-width` on some inner
-element — that's exactly the bug this fixed: several elements independently
-capped themselves at `--measure` *inside* an outer container that was wider
-still (`56rem`, hardcoded, matching nothing else), so they sat flush-left
-with dead space to their right instead of actually filling or centering in
-the page.
+**Three width tokens, each with one job.** `--measure` (34rem) is a reading
+line length, for prose only. `--page-width` (56rem) is `.page`'s own outer
+width on every page — room to breathe, *not* a reading measure. `--room-width`
+(`--measure` + the sidebar's gap and width, ≈49rem) is wider still, used only
+by the room page for its text+sidebar grid. `.site-nav` matches whichever of
+`--page-width`/`--room-width` its page uses, via
+`.site-nav:has(~ .room-page)` — the nav sits *before* the page content in the
+DOM (the layout's nav, then `<slot />`), so a plain `~`/`+` combinator can't
+reach forward to detect which page follows it; only `:has()` with a relative
+selector can.
+
+**The actual bug, and the wrong fix that preceded this one.** Several
+elements that want `--measure` for readability (`.prose`, the room page's
+`.room-description`) were given `max-width: var(--measure)` with no
+`margin: auto` of their own, inside a `.page` that was *wider* than
+`--measure` — so they sat flush-left with dead space to their right, instead
+of either filling the page or centering as an island within it. The first
+attempt at fixing this made `.page` itself `--measure` by default, which
+*does* make flush-capped elements fill their container — but it also
+shrank every other page (home, readme) to the reading measure, which was
+too narrow, and it missed `.room-description`, which inherited the room
+page's wider `--room-width` container and was still flush-left same as
+before, just against a different number. The actual fix has two parts,
+applied per element based on what it actually is:
+- An element that's an **island of prose inside a wider page** (`.prose` on
+  `/readme/`) gets `max-width: var(--measure)` **and** `margin: 0 auto`, so
+  it centers.
+- An element that's **just more body text at the same left edge as the
+  heading above it** (`.room-description`, sitting directly under the room's
+  title and byline) gets **no cap at all** — matching its siblings' width is
+  more consistent than introducing a narrower, flush-left block beside them.
+  (`.lede` and `.room-excerpt` on the homepage are a third, legitimate case:
+  short one-line text that's fine flush-left at `--measure`, same as the
+  headings above them, precisely because the page itself isn't drastically
+  wider than that measure — don't generalize "always center" or "never cap"
+  from this; it depends on whether the surrounding page width makes a bare
+  cap look like a mistake.)
+
+If you add a page wider than `--page-width`, or a new prose block inside an
+existing wide page, decide explicitly which of these three shapes it is
+rather than copying whichever nearby rule looks similar.
 
 Two real bugs this surfaced, both easy to reintroduce:
 
