@@ -87,3 +87,16 @@ public domain by Project Gutenberg's own license terms.
 
 None. All 30 entries above were downloaded and grepped/sed-extracted from the
 live Gutenberg source in this session.
+
+## Description policy
+
+Each entry's `description` is **context for reading the excerpt, never a
+summary of what happens in it** — authorship, period, publication or
+performance history, biography, textual sources, reception. The excerpt is
+there to be read, not previewed; a description that gives away its content
+defeats that. The 30 descriptions in `manifest.json` were deliberately
+rewritten to this standard (an earlier version summarized plot instead — see
+the repo's commit history for that correction). If you add a new entry or
+edit an existing one, hold its description to the same rule: it should be
+useful to someone *before* they read the passage, and say nothing a reader
+would prefer to discover for themselves.
