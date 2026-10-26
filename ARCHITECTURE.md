@@ -112,6 +112,27 @@ to a new joiner" — don't reintroduce a visibility flag or a separate
 propagation check; if you find yourself wanting one, something upstream of
 this file has probably drifted from the rule.
 
+## Activity log — `src/lib/log.ts`
+
+Plain `console.log` lines, one per event, called from the same four spots
+in `src/lib/rooms.ts` that already call `bus.emit(...)`: join, leave, note,
+fade. Nothing else is logged (not location updates, which fire continuously
+as a pointer moves and would just be noise, and not a note's actual text,
+which would make the log itself a comment archive the app's own fade rule
+says shouldn't exist). This exists specifically for the crit 10 ("Fly by
+instruments") requirement to narrate who did what from `flyctl logs -a
+<repo>` while two people use the deployed app from its URL alone — before
+this, the app produced **no application-level output at all**; everything
+in `flyctl logs` was Astro's own boot message and Fly's machine/proxy
+lines. "The logging outlives the crit" just means plain stdout, which Fly
+already captures — no separate log store or persistence was added, since
+Fly's own log retention is what "outlives" means here.
+
+A faded note's log line carries no `handle` — by the time a note fades,
+every original carrier (the only people who could be named as its author)
+has already left, so logging one here would contradict the app's own rule
+that a faded note carries no identity.
+
 ## Real-time — SSE, not WebSockets
 
 `src/lib/events.ts` is a single in-process `EventEmitter`, events namespaced
@@ -431,6 +452,7 @@ already hold rows, this is the failure mode to check for first.
 |---|---|
 | Change the schema | `src/lib/schema.ts`, then `pnpm db:generate` |
 | Touch presence/notes/propagation/fade logic | `src/lib/rooms.ts` — read the invariant above first |
+| Add or change what's logged server-side | `src/lib/log.ts` — keep it to real activity (join/leave/note/fade), not continuous signals like location, and never a note's own text |
 | Touch login / the session name | `src/lib/session.ts`, `src/pages/index.astro` — not the room page, login lives on the homepage only |
 | Add a route | `src/pages/api/room/[slug]/` for API shape, `src/pages/room/[slug]/index.astro` for the page |
 | Change how notes/heat render | `src/scripts/margins-client.ts` (client), `src/lib/heat.ts` (shared density math) |

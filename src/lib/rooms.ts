@@ -1,5 +1,6 @@
 import { addHeatMark } from "./db";
 import { bus } from "./events";
+import { logFade, logJoin, logLeave, logNote } from "./log";
 
 // Live state --- who's present, and notes that haven't faded yet --- lives
 // only in process memory. Losing it on a crash or restart is an accepted
@@ -88,6 +89,7 @@ export function join(slug: string, connectionId: string, handle: string): void {
   } else {
     r.presence.set(handle, new Set([connectionId]));
     bus.emit(`room:${slug}`, { type: "join", handle });
+    logJoin(slug, handle);
   }
 }
 
@@ -105,6 +107,7 @@ export function leave(slug: string, connectionId: string): void {
   r.presence.delete(handle);
   r.locations.delete(handle);
   bus.emit(`room:${slug}`, { type: "leave", handle });
+  logLeave(slug, handle);
 
   // The propagation rule, in full: this handle may have been the last
   // carrier of one or more live notes. Each one that loses its last carrier
@@ -115,6 +118,7 @@ export function leave(slug: string, connectionId: string): void {
     addHeatMark(slug, note.start, note.end);
     r.notes.delete(note.id);
     bus.emit(`room:${slug}`, { type: "fade", id: note.id, start: note.start, end: note.end });
+    logFade(slug, note.id, note.start, note.end);
   }
 
   if (r.presence.size === 0 && r.notes.size === 0) roomStates.delete(slug);
@@ -143,5 +147,6 @@ export function writeNote(
   const note: LiveNote = { id, start, end, handle, text, carrierHandles: new Set(r.presence.keys()) };
   r.notes.set(id, note);
   bus.emit(`room:${slug}`, { type: "note", id, start, end, handle, text });
+  logNote(slug, handle, id, start, end);
   return note;
 }
