@@ -21,11 +21,11 @@
   --font-serif: "Literata", Georgia, "Times New Roman", serif;
   --font-sans: "Work Sans", system-ui, -apple-system, sans-serif;
 
-  --measure: 34rem; /* ~65-70 characters at body size, for actual prose */
-  --page-width: 56rem; /* the page's own outer width --- room to breathe,
-    not a reading measure. Anything that wants --measure inside a page this
-    wide needs its own `margin: 0 auto` to center as an island; max-width
-    alone just leaves it flush-left with dead space to its right. */
+  --measure: 56rem;
+  --page-width: 56rem; /* equal to --measure right now, kept as a separate
+    token since the two mean different things (a page's outer width vs. a
+    reading line length) even when their values happen to match --- change
+    one without assuming the other should follow. */
   --room-width: calc(var(--measure) + var(--space-4) + 12rem);
   --space-1: 0.5rem;
   --space-2: 1rem;
