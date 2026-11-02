@@ -15,6 +15,13 @@
       "when": 1792732560435,
       "tag": "0001_left_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793580298095,
+      "tag": "0002_yielding_mentallo",
+      "breakpoints": true
     }
   ]
 }

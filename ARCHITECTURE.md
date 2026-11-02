@@ -25,15 +25,16 @@ work and a per-work instance number, e.g. "Macbeth #0001"; seeding the same
 work again makes a separate, independent room ("Macbeth #0002") rather than
 updating the first. See "The text library" below.
 
-**Logging in happens once, on the homepage, not per room.** "Logging in" is
-giving yourself a name for the session — no account, no password. The name is
-stored in `sessionStorage` (`src/lib/session.ts`) and carries to any room
-visited afterwards without asking again. A room URL opened with no name
-stored yet (a fresh tab, a shared link opened cold) redirects to `/` with
-`?next=<room path>`, and back again once a name is given — see "Routes"
-below. This is a deliberate reversal from this app's earlier state, where a
-stranger could read a room's text with no name at all; now reading requires
-having named yourself on the homepage first, same as everything else.
+**Logging in happens once, on the homepage, not per room — and is now a real
+account.** A visitor signs up or logs in with a username and password; the
+server sets a signed, stateless session cookie that survives closing the
+browser and follows the same account across devices (see "Accounts and
+sessions" below for the mechanism). This replaced an earlier
+`sessionStorage`-only scheme that was really just "a name for this browser
+tab session" with no account, no password, and no cross-device persistence.
+A room URL opened with no session yet (a fresh tab, a shared link opened
+cold) redirects to `/` with `?next=<room path>`, and back again once logged
+in — see "Routes" below.
 
 ## Deploy shape (fixed by the course, not by this app)
 
@@ -51,7 +52,7 @@ below for why).
 
 ## Data model — `src/lib/schema.ts` + `src/lib/db.ts`
 
-Two tables, SQLite via `better-sqlite3` + `drizzle-orm`:
+Three tables, SQLite via `better-sqlite3` + `drizzle-orm`:
 
 - **`rooms`**: `slug` (text, **primary key** — rooms are only ever addressed
   by slug, from the URL to the seed script's argument, so there's no surrogate
@@ -62,6 +63,15 @@ Two tables, SQLite via `better-sqlite3` + `drizzle-orm`:
   redeploy, and the only thing this table is allowed to hold — no author, no
   note content, ever. If a future feature needs to persist more about a note,
   it does not belong in this table.
+- **`users`**: `id` (autoincrement), `username`/`usernameLower` (display
+  casing vs. the column signup/login actually match against — same
+  identity-match/display split as `rooms`' `textSlug`/`instance`),
+  `passwordHash`/`passwordSalt` (scrypt, see "Accounts and sessions" below),
+  `color` (one of the curated palette's hex values, `src/lib/palette.ts`),
+  `createdAt`. **No foreign key from `heatMarks` or `rooms` to `users`** —
+  deliberately: a faded note carries no identity at all (see "The live
+  engine" below), and accounts owning identity for live content doesn't
+  change that rule for faded content.
 
 **Migrations**: edit `schema.ts`, run `pnpm db:generate`, commit the new file
 under `drizzle/` (plus its `meta/` updates). `src/lib/db.ts` calls `migrate()`
@@ -82,23 +92,37 @@ losing it on a crash or restart is an accepted, deliberate simplification
 
 ```
 RoomState {
-  presence: Map<handle, Set<connectionId>>   // dedupes multiple tabs/devices per handle
-  connectionHandles: Map<connectionId, handle>
-  locations: Map<handle, offset>              // best-effort, not authoritative
+  presence: Map<userId, Set<connectionId>>    // dedupes multiple tabs/devices per account
+  connectionUsers: Map<connectionId, { userId, handle, color }>
+  locations: Map<userId, offset>              // best-effort, not authoritative
   notes: Map<noteId, LiveNote>
 }
-LiveNote { start, end, handle, text, carrierHandles: Set<handle> }
+LiveNote { start, end, userId, handle, color, text, carrierIds: Set<userId> }
 ```
+
+**Keyed by `userId` (a stable account id), not by the display `handle`
+string** — this changed when accounts were added specifically so that
+renaming yourself on `/profile/` can never retroactively relabel or corrupt
+bookkeeping for notes you already wrote under an old name. `handle`/`color`
+are snapshotted onto a `LiveNote` at the moment `writeNote()` runs, and onto
+a connection's presence entry at the moment `join()` runs — **not** looked
+up live from `userId` on every render. This is a deliberate decision, the
+same philosophy the carrier-set rule below already uses: a note's author
+display, and a connection's presence display, are both fixed for the
+lifetime of that note/connection. Editing your display name or color on
+`/profile/` does **not** retroactively update an already-open tab's presence
+list or any note you already wrote in it — only a fresh connection (reload,
+or a new tab) picks up the new handle/color.
 
 **The one invariant everything else depends on**: a note is visible to
 whoever's present *iff it still exists in `notes`*. There is no separate
 visibility flag anywhere. This works because:
 
-- `writeNote()` snapshots `carrierHandles = new Set(presence.keys())` **at
+- `writeNote()` snapshots `carrierIds = new Set(presence.keys())` **at
   the moment of writing** — the carrier set is fixed then and never grows.
   Someone joining later and seeing the note does **not** add them to it.
-- `leave()` removes the departing handle from every live note's
-  `carrierHandles`; the instant a note's `carrierHandles` is empty, it is
+- `leave()` removes the departing `userId` from every live note's
+  `carrierIds`; the instant a note's `carrierIds` is empty, it is
   deleted from `notes` **and** persisted to `heat_marks` in the same step.
 - A newly-connecting client's snapshot (`getSnapshot()`) just reads whatever
   is currently in `notes`. A note that lost its last carrier was already
@@ -154,11 +178,14 @@ single-file SQLite DB break down together, and that's a real rearchitecture
 
 ## Routes
 
-- `src/pages/index.astro` — SSR, the only place a name is given. Renders a
-  login form and (hidden until a name exists) the room list in the same
-  page; a tiny inline script checks `getHandle()` (`src/lib/session.ts`) on
-  load and shows whichever half applies. Reads `?next=<room path>` and, once
-  a name is set (or already was), redirects there instead of showing the
+- `src/pages/index.astro` — SSR, the only place an account is signed up for
+  or logged into. Renders a signup/login form with an explicit toggle
+  between the two modes (not one smart form that guesses) and, hidden until
+  `Astro.locals.user` is set (resolved server-side by `src/middleware.ts`,
+  checked at render time — not just client-side as before), the room list in
+  the same page. The inline script POSTs to `/api/auth/login` or
+  `/api/auth/signup` depending on the toggle. Reads `?next=<room path>` and,
+  once logged in (or already was), redirects there instead of showing the
   room list — this is how a cold visit to a room URL completes. `next` is
   validated against `^/room/[^/]+/$` before ever reaching
   `location.replace`; it's attacker-controlled (anyone can craft a link to
@@ -181,23 +208,47 @@ single-file SQLite DB break down together, and that's a real rearchitecture
 - `src/pages/room/[slug]/index.astro` — SSR. 404s if the room doesn't exist.
   Splits the room's text into offset-tracked paragraphs
   (`src/lib/paragraphs.ts`), renders the persisted heat density
-  (`src/lib/heat.ts`) server-side. A room-page inline script checks
-  `getHandle()`; with no name stored it redirects to `/?next=<this path>`
-  rather than rendering anything live. **This means the SSR'd text is only
-  reachable past a name prompt now** — see the note in "What the app does"
-  above; it's a deliberate product change, not an oversight, but it's worth
-  knowing this file no longer hands a stranger the text with zero
-  interaction, which an earlier version of this document took as settled.
-  Embeds the paragraph table + heat marks as JSON for the client script to
-  consume without re-deriving offsets from a DOM that notes will mutate.
-- `GET /api/room/[slug]/events` — the SSE stream. Query params
+  (`src/lib/heat.ts`) server-side. Checks `Astro.locals.user`; with no
+  session, issues a **server-side** `Astro.redirect` to `/?next=<this path>`
+  (previously a client-side `location.replace` after a page's worth of
+  content had already rendered) rather than rendering anything live. Embeds
+  the paragraph table + heat marks as JSON, plus the logged-in user's
+  `username`/`color` (for `initRoom()`), for the client script to consume
+  without re-deriving offsets from a DOM that notes will mutate.
+- `src/pages/profile/` — SSR, requires a session (redirects to `/` with
+  `?next=/profile/` if not). Reads `Astro.locals.user`. A form for the
+  display name plus a color-swatch picker, one radio per
+  `src/lib/palette.ts` entry — not a native `<input type=color>`, since the
+  whole point is a *curated* set. POSTs to `/api/profile`.
+- `src/middleware.ts` — runs once per request, resolves the session cookie
+  into `Astro.locals.user` (`User | null`). Every page/layout above reads
+  this instead of independently parsing the cookie.
+- `POST /api/auth/signup`, `POST /api/auth/login` — body
+  `{username, password}`. Signup: username 1–40 chars, password minimum 8
+  characters, rejects an already-taken username (case-insensitive). Login:
+  same generic error either way for "no such user" and "wrong password"
+  (don't leak which), and **always** runs the scrypt comparison — against a
+  fixed dummy hash when the username lookup misses — so response timing
+  doesn't itself leak which usernames are registered. Both set the session
+  cookie on success.
+- `POST /api/auth/logout` — clears the session cookie, redirects to `/` (a
+  plain `<form method="post">` submit from `Layout.astro`'s nav, not a fetch
+  call, so it needs to redirect rather than return a bodyless response).
+- `POST /api/profile` — requires a valid session (401 otherwise); body
+  `{username?, color?}`. Validates `color` against `src/lib/palette.ts`'s
+  exact hex values — this is the actual enforcement point for "curated
+  palette," not just a UI suggestion.
+- `GET /api/room/[slug]/events` — the SSE stream. Query param
   `connectionId` (client-generated, fresh per tab/connection — see
-  "Client" below for why one tab is always one connection even though the
-  name is shared across tabs), `handle` (read from the query string, sourced
-  client-side from `sessionStorage`, not re-prompted per room).
-- `POST /api/room/[slug]/location` — body `{connectionId, offset}`. Handle is
-  always resolved server-side from `connectionId`; never trust a
-  client-supplied handle on a per-request basis.
+  "Client" below for why one tab is always one connection even though an
+  account can have several open at once). Identity (`userId`/`handle`/
+  `color`) is resolved server-side from `Astro.locals.user`, **not** a query
+  param — an earlier version took `handle` straight off the URL with no
+  authentication at all, which accounts specifically closed off.
+- `POST /api/room/[slug]/location` — body `{connectionId, offset}`. Identity
+  is always resolved server-side from `connectionId` (which `join()` already
+  mapped to a `userId` when the SSE connection opened); never trust a
+  client-supplied identity on a per-request basis.
 - `POST /api/room/[slug]/notes` — body `{connectionId, start, end, text}`.
   Validates offsets against the room's actual text length and caps note
   length (280 chars). Responds `{ok:true}` only — the posting client renders
@@ -207,17 +258,26 @@ single-file SQLite DB break down together, and that's a real rearchitecture
 ## Client — `src/scripts/margins-client.ts`
 
 Imported directly by the room page's inline `<script>` (Vite bundles it, same
-pattern as every other local-module import in this template). `initRoom(handle)`
-takes the name as a parameter — it's resolved (and the redirect-home decision
-made) by the room page's own inline script before `initRoom` is ever called,
-so this module has no awareness of login at all; it just connects
-immediately on load with whatever name it was given, where it used to wait
-for a per-room join form submit. `connectionId` is still generated fresh per
-call (`crypto.randomUUID()`) — a name is shared across every tab via
-`sessionStorage`, but each open tab is still its own SSE connection and
-needs its own id, which is exactly what `src/lib/rooms.ts`'s presence dedupe
-(`presence: Map<handle, Set<connectionId>>`) already expects: one handle, a
+pattern as every other local-module import in this template).
+`initRoom(user: {username, color})` takes the account's display name and
+chosen color as a parameter — the room page's frontmatter already redirected
+away if there was no session, so this module has no awareness of login at
+all; it just connects immediately on load. No `userId` is needed
+client-side: the server already knows who you are from the session cookie on
+every request, including the SSE connection itself (`handle`/`color` on
+inbound server events exist purely for rendering). `connectionId` is still
+generated fresh per call (`crypto.randomUUID()`) — one account can have
+several tabs open, but each tab is still its own SSE connection and needs
+its own id, which is exactly what `src/lib/rooms.ts`'s presence dedupe
+(`presence: Map<userId, Set<connectionId>>`) already expects: one account, a
 set of connections.
+
+**Per-author color.** Every presence entry and note carries a `color`
+(snapshotted server-side at connect/write time — see "The live engine"
+above), rendered as that author's own `--note-*` swatch. A text segment more
+than one author has annotated renders in the neutral `--note-overlap` token
+instead of either individual author's color — it isn't any one person's
+note, so it shouldn't look like it belongs to one.
 
 Key choices, not obvious from the code alone:
 
@@ -243,16 +303,58 @@ Key choices, not obvious from the code alone:
   asked to make this "more precise" or "more real-time," check with whoever's
   directing the work first — it was intentionally kept loose.
 
+## Accounts and sessions — `src/lib/auth.ts` + `src/middleware.ts`
+
+**Passwords**: `crypto.scryptSync(password, salt, 64)`, salt per-user
+(`randomBytes(16)`), compared with `timingSafeEqual` (never `===`).
+scrypt's default cost parameters use roughly 16–17MB of transient memory per
+concurrent call — worth knowing given `fly.toml`'s 256MB ceiling, though
+fine for this app's realistic concurrency (a handful of logins during a crit
+demo, not a real login surge).
+
+**Sessions** are a signed, stateless cookie — no server-side session table,
+so nothing new needs to survive a restart beyond the `users` table itself
+(already durable, being in SQLite on the volume). The cookie payload is
+`<userId>.<issuedAt>.<hmac-of-both>`, HMAC-SHA256 over `userId.issuedAt` with
+a secret from `SESSION_SECRET`. `verifySession()` recomputes the HMAC with
+`timingSafeEqual`, then separately checks `issuedAt` against a 30-day max
+age **on every request** — not just relying on the cookie's own `maxAge`,
+which is a browser-only hint a copied/stolen cookie would otherwise ignore
+forever. This is deliberately stateless (no in-memory session map) because
+`fly.toml`'s `auto_stop_machines`/`min_machines_running = 0` means the
+machine frequently cold-starts from zero — an in-memory session store would
+silently log out every visitor on every cold start.
+
+`src/middleware.ts` runs this check once per request and sets
+`Astro.locals.user`, so no page independently parses the cookie.
+
+**`SESSION_SECRET`**: a required env var outside local dev. Locally, a
+hardcoded dev-only fallback is used (never in production — gated on
+`import.meta.env.DEV`). In production, a **missing** `SESSION_SECRET`
+throws at the point `src/lib/auth.ts` is first imported, failing the request
+loudly, rather than silently falling back to a secret that would sit in
+plaintext in this (eventually public) repo — that fallback would let anyone
+forge a session for any `userId`. Set it with
+`flyctl secrets set SESSION_SECRET=<random> -a <this-repo-name>`; never
+commit it to `fly.toml`'s `[env]` block, which is tracked.
+
 ## Design system — `src/styles/global.css` + `src/layouts/Layout.astro`
 
 Paper and ink, not software chrome: color is spent distinguishing the
-product's own two kinds of attention (warm `--ember` = faded/past, cool
-`--presence` = live/present) rather than decorating the interface. Tokens
-(colors, the two type families — **Literata** for the text and headings,
-**Work Sans** for UI chrome — spacing scale) live in `global.css`'s `:root`;
-`Layout.astro` loads the fonts and wraps every page (`index.astro`, the room
-page, `readme/index.astro`) so the three stay visually consistent. Change a
-token in one place, not per-page.
+product's own kinds of attention (warm `--ember` = faded/past, cool
+`--presence` = live/present, and a third family, `--note-1` through
+`--note-5` plus `--note-overlap` = *whose* note this is — a user picks one
+of the five on `/profile/`; `--note-overlap` is reserved for text more than
+one author has annotated and is never user-selectable). Each `--note-*`
+value was checked for ≥5:1 contrast against `--ink` text on top of it,
+matching the old static mark color's own ratio. This is a deliberately
+separate token family from `--ember`/`--presence` — those two encode *kind*
+of attention, not *who*, and a per-author palette is a third, different kind
+of meaning. Tokens (colors, the two type families — **Literata** for the
+text and headings, **Work Sans** for UI chrome — spacing scale) live in
+`global.css`'s `:root`; `Layout.astro` loads the fonts and wraps every page
+(`index.astro`, the room page, `/profile/`, `readme/index.astro`) so they
+all stay visually consistent. Change a token in one place, not per-page.
 
 **Three width tokens, each with one job.** `--measure` (34rem) is a reading
 line length, for prose only. `--page-width` (56rem) is `.page`'s own outer
@@ -425,6 +527,13 @@ already hold rows, this is the failure mode to check for first.
   actually changed.
 - Single machine only (see "Real-time" above).
 - No decay after a note fades — heat marks are permanent once written.
+- No server-side session revocation list: a session cookie remains valid
+  until its own 30-day expiry even if the account's password changes in the
+  meantime. Changing a password does not invalidate previously issued
+  session cookies, since the signed payload covers only `userId` + issue
+  time, not a password version. Deliberate scope boundary for this app's
+  size, not an oversight.
+- No login rate-limiting or lockout. Same reasoning as above.
 - No automated test covers the propagation/fade state machine itself (two
   concurrent SSE clients, timing-dependent disconnects). This was a
   deliberate call, not an oversight: `spec/README.md`'s own framing treats
@@ -453,7 +562,8 @@ already hold rows, this is the failure mode to check for first.
 | Change the schema | `src/lib/schema.ts`, then `pnpm db:generate` |
 | Touch presence/notes/propagation/fade logic | `src/lib/rooms.ts` — read the invariant above first |
 | Add or change what's logged server-side | `src/lib/log.ts` — keep it to real activity (join/leave/note/fade), not continuous signals like location, and never a note's own text |
-| Touch login / the session name | `src/lib/session.ts`, `src/pages/index.astro` — not the room page, login lives on the homepage only |
+| Touch login/signup/sessions | `src/lib/auth.ts`, `src/middleware.ts`, `src/pages/index.astro` — not the room page, login/signup lives on the homepage only |
+| Touch the profile page (name, color) | `src/pages/profile/index.astro`, `src/pages/api/profile.ts`, `src/lib/palette.ts` |
 | Add a route | `src/pages/api/room/[slug]/` for API shape, `src/pages/room/[slug]/index.astro` for the page |
 | Change how notes/heat render | `src/scripts/margins-client.ts` (client), `src/lib/heat.ts` (shared density math) |
 | Change colors, type, or spacing | `src/styles/global.css` tokens — not per-page overrides |

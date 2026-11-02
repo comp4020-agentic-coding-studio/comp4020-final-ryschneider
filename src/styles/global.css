@@ -18,6 +18,19 @@
   --presence: #2f5c54;
   --presence-dim: #5c8f86;
 
+  /* A third, distinct kind of meaning from the two above: not "how much past
+     attention" (ember) or "who's live right now" (presence), but "whose
+     note is this" --- a curated set a user picks one of on /profile/, each
+     checked for >=5:1 --ink text contrast on top of it (the old static mark
+     color's own ratio). --note-overlap is reserved for spans more than one
+     author has annotated and is never user-selectable. */
+  --note-1: #e3b672; /* amber, close to the old static mark color, as the default */
+  --note-2: #8fb8ae; /* teal */
+  --note-3: #c98f7c; /* terracotta */
+  --note-4: #a3b17e; /* olive */
+  --note-5: #b39bc4; /* plum */
+  --note-overlap: #d9c3a6; /* neutral blend for multi-author overlap segments */
+
   --font-serif: "Literata", Georgia, "Times New Roman", serif;
   --font-sans: "Work Sans", system-ui, -apple-system, sans-serif;
 
@@ -142,6 +155,33 @@ input:focus {
 
 .site-nav a {
   color: var(--ink-muted);
+}
+
+.site-nav-account {
+  float: right;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.logout-form {
+  display: inline;
+}
+
+.logout-form button {
+  font-size: 0.9rem;
+  padding: 0;
+  border: none;
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 0.15em;
+}
+
+.logout-form button:hover {
+  background: none;
+  color: var(--ink);
+  text-decoration-color: currentColor;
 }
 
 .page {
