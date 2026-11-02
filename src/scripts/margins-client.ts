@@ -6,32 +6,52 @@ interface RoomData {
   heatMarks: Span[];
 }
 
+interface RoomUser {
+  username: string;
+  color: string;
+}
+
 interface LiveNoteView {
   id: number;
   start: number;
   end: number;
   handle: string;
+  color: string;
   text: string;
 }
 
+interface PresenceEntry {
+  handle: string;
+  color: string;
+  offset: number | null;
+}
+
 type ServerEvent =
-  | { type: "snapshot"; presence: { handle: string; offset: number | null }[]; notes: LiveNoteView[] }
-  | { type: "join"; handle: string }
-  | { type: "leave"; handle: string }
-  | { type: "location"; handle: string; offset: number }
-  | ({ type: "note" } & LiveNoteView)
+  | {
+      type: "snapshot";
+      presence: { userId: number; handle: string; color: string; offset: number | null }[];
+      notes: ({ userId: number } & LiveNoteView)[];
+    }
+  | { type: "join"; userId: number; handle: string; color: string }
+  | { type: "leave"; userId: number }
+  | { type: "location"; userId: number; offset: number }
+  | ({ type: "note"; userId: number } & LiveNoteView)
   | { type: "fade"; id: number; start: number; end: number };
 
 const LOCATION_THROTTLE_MS = 400;
 
-export function initRoom(handle: string): void {
+export function initRoom(user: RoomUser): void {
   const dataEl = document.getElementById("room-data");
   const data = JSON.parse(dataEl?.textContent ?? "null") as RoomData | null;
   if (!data) return;
 
   const { slug, paragraphs } = data;
   const heatMarks: Span[] = [...data.heatMarks];
-  const presence = new Map<string, number | null>();
+  // Presence and notes are keyed by userId server-side (a rename on
+  // /profile/ must never relabel content tied to an old handle), but
+  // display only ever needs the handle/color snapshotted at connect/write
+  // time --- this map carries exactly that, nothing more.
+  const presence = new Map<number, PresenceEntry>();
   const notes = new Map<number, LiveNoteView>();
 
   const presenceEl = document.getElementById("presence");
@@ -40,9 +60,9 @@ export function initRoom(handle: string): void {
 
   const paragraphEls = [...textEl.querySelectorAll<HTMLElement>("[data-start]")];
 
-  // The name was already given on the homepage (see src/lib/session.ts) ---
-  // this connection just needs a fresh per-tab id to distinguish it from
-  // any other open tab using the same name.
+  // Identity (username + session cookie) is already established server-side
+  // --- this connection just needs a fresh per-tab id to distinguish it from
+  // any other open tab for the same account.
   const connectionId = crypto.randomUUID();
   let joined = false;
   let lastSentOffset: number | null = null;
@@ -56,11 +76,15 @@ export function initRoom(handle: string): void {
   function renderPresence(): void {
     presenceEl!.innerHTML = "";
     const list = document.createElement("ul");
-    for (const [h, offset] of presence) {
-      if (h === handle) continue;
+    for (const entry of presence.values()) {
+      // Usernames are unique per account, so comparing handles here is an
+      // exact "is this me" check, same as before --- no need for the
+      // client to know its own userId just to skip itself in the list.
+      if (entry.handle === user.username) continue;
       const li = document.createElement("li");
-      const where = offset === null ? "just arrived" : `near paragraph ${paragraphIndexFor(offset) + 1}`;
-      li.textContent = `${h} — ${where}`;
+      const where = entry.offset === null ? "just arrived" : `near paragraph ${paragraphIndexFor(entry.offset) + 1}`;
+      li.textContent = `${entry.handle} — ${where}`;
+      li.style.color = entry.color;
       list.appendChild(li);
     }
     presenceEl!.appendChild(list);
@@ -114,6 +138,11 @@ export function initRoom(handle: string): void {
 
       const mark = document.createElement("mark");
       mark.dataset.noteId = covering.map((n) => n.id).join(",");
+      // A segment more than one author has annotated renders in a neutral
+      // shared color, not either individual author's --- it isn't "theirs",
+      // it's everyone's. A single-author segment uses that author's own
+      // chosen color.
+      mark.style.backgroundColor = covering.length === 1 ? covering[0].color : "var(--note-overlap)";
       // title is the accessible fallback (screen readers, no-JS tooltip);
       // data-note drives the visible popover in CSS, since generated
       // ::after content isn't reliably announced. Multiple notes covering
@@ -148,36 +177,47 @@ export function initRoom(handle: string): void {
   }
 
   function connect(): void {
-    const es = new EventSource(
-      `/api/room/${slug}/events?connectionId=${encodeURIComponent(connectionId)}&handle=${encodeURIComponent(handle)}`,
-    );
+    // No handle query param anymore --- identity comes from the session
+    // cookie, read server-side (see src/pages/api/room/[slug]/events.ts).
+    const es = new EventSource(`/api/room/${slug}/events?connectionId=${encodeURIComponent(connectionId)}`);
     es.onmessage = (ev) => {
       const event = JSON.parse(ev.data) as ServerEvent;
       switch (event.type) {
         case "snapshot": {
           presence.clear();
-          for (const p of event.presence) presence.set(p.handle, p.offset);
+          for (const p of event.presence) presence.set(p.userId, { handle: p.handle, color: p.color, offset: p.offset });
           notes.clear();
-          for (const n of event.notes) notes.set(n.id, n);
+          for (const n of event.notes) {
+            notes.set(n.id, { id: n.id, start: n.start, end: n.end, handle: n.handle, color: n.color, text: n.text });
+          }
           joined = true;
           renderPresence();
           renderAllParagraphs();
           break;
         }
         case "join":
-          presence.set(event.handle, null);
+          presence.set(event.userId, { handle: event.handle, color: event.color, offset: null });
           renderPresence();
           break;
         case "leave":
-          presence.delete(event.handle);
+          presence.delete(event.userId);
           renderPresence();
           break;
-        case "location":
-          presence.set(event.handle, event.offset);
+        case "location": {
+          const entry = presence.get(event.userId);
+          if (entry) presence.set(event.userId, { ...entry, offset: event.offset });
           renderPresence();
           break;
+        }
         case "note": {
-          notes.set(event.id, { id: event.id, start: event.start, end: event.end, handle: event.handle, text: event.text });
+          notes.set(event.id, {
+            id: event.id,
+            start: event.start,
+            end: event.end,
+            handle: event.handle,
+            color: event.color,
+            text: event.text,
+          });
           for (const i of paragraphsOverlapping(event.start, event.end)) renderParagraph(i);
           break;
         }

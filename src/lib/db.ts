@@ -4,7 +4,7 @@ import Database from "better-sqlite3";
 import { asc, eq, max } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { type HeatMark, type Room, heatMarks, rooms } from "./schema";
+import { type HeatMark, type Room, type User, heatMarks, rooms, users } from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
 // fly.toml points DATABASE_PATH at the machine's volume (/data), which is
@@ -24,7 +24,7 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
-export type { Room, HeatMark };
+export type { Room, HeatMark, User };
 
 export function getRoom(slug: string): Room | undefined {
   return db.select().from(rooms).where(eq(rooms.slug, slug)).get();
@@ -78,4 +78,34 @@ export function addHeatMark(slug: string, start: number, end: number): HeatMark 
     .values({ roomSlug: slug, startOffset: start, endOffset: end })
     .returning()
     .get();
+}
+
+export function getUserById(id: number): User | undefined {
+  return db.select().from(users).where(eq(users.id, id)).get();
+}
+
+export function getUserByUsername(username: string): User | undefined {
+  return db
+    .select()
+    .from(users)
+    .where(eq(users.usernameLower, username.toLowerCase()))
+    .get();
+}
+
+export function createUser(username: string, passwordHash: string, passwordSalt: string): User {
+  return db
+    .insert(users)
+    .values({ username, usernameLower: username.toLowerCase(), passwordHash, passwordSalt })
+    .returning()
+    .get();
+}
+
+export function updateUserProfile(id: number, fields: { username?: string; color?: string }): User {
+  const patch: Partial<typeof users.$inferInsert> = {};
+  if (fields.username !== undefined) {
+    patch.username = fields.username;
+    patch.usernameLower = fields.username.toLowerCase();
+  }
+  if (fields.color !== undefined) patch.color = fields.color;
+  return db.update(users).set(patch).where(eq(users.id, id)).returning().get();
 }

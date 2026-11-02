@@ -1,0 +1,161 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { NOTE_PALETTE } from "../../lib/palette";
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect(`/?next=${encodeURIComponent(Astro.url.pathname)}`);
+}
+---
+
+<Layout title="Margins — Profile">
+  <main class="page">
+    <h1>Profile</h1>
+
+    <form id="profile-form">
+      <label>
+        Display name
+        <input name="username" required maxlength="40" value={user.username} autocomplete="username" />
+      </label>
+
+      <fieldset>
+        <legend>Note highlight color</legend>
+        <div class="swatches" role="radiogroup" aria-label="Note highlight color">
+          {
+            NOTE_PALETTE.map((hex) => (
+              <label class="swatch">
+                <input type="radio" name="color" value={hex} checked={hex === user.color} />
+                <span class="swatch-circle" style={`background-color: ${hex}`} />
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <button type="submit">Save</button>
+      <p id="profile-status" role="status" hidden></p>
+    </form>
+  </main>
+</Layout>
+
+<style>
+  #profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: var(--measure);
+    margin-top: var(--space-3);
+  }
+
+  #profile-form label:not(.swatch) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+  }
+
+  #profile-form input[type="text"],
+  #profile-form input:not([type]) {
+    max-width: 20rem;
+  }
+
+  fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  legend {
+    padding: 0;
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .swatches {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .swatch {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .swatch input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .swatch-circle {
+    display: block;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    border: 2px solid transparent;
+  }
+
+  .swatch input:checked + .swatch-circle {
+    border-color: var(--ink);
+  }
+
+  .swatch input:focus-visible + .swatch-circle {
+    outline: 2px solid var(--ember-bright);
+    outline-offset: 2px;
+  }
+
+  #profile-form button[type="submit"] {
+    align-self: flex-start;
+  }
+
+  #profile-status {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+  }
+
+  #profile-status[hidden] {
+    display: none;
+  }
+
+  #profile-status.error {
+    color: var(--ember);
+  }
+</style>
+
+<script>
+  const form = document.getElementById("profile-form") as HTMLFormElement;
+  const statusEl = document.getElementById("profile-status")!;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = form.querySelector<HTMLInputElement>('input[name="username"]')?.value.trim();
+    const color = form.querySelector<HTMLInputElement>('input[name="color"]:checked')?.value;
+    if (!username) return;
+
+    statusEl.hidden = true;
+    statusEl.classList.remove("error");
+
+    const res = await fetch("/api/profile", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, color }),
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      const body = await res?.json().catch(() => null);
+      statusEl.textContent = body?.error ?? "Something went wrong --- try again.";
+      statusEl.classList.add("error");
+      statusEl.hidden = false;
+      return;
+    }
+
+    statusEl.textContent = "Saved.";
+    statusEl.hidden = false;
+  });
+</script>

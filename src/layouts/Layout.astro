@@ -6,6 +6,7 @@ interface Props {
 }
 
 const { title } = Astro.props;
+const user = Astro.locals.user;
 ---
 
 <!doctype html>
@@ -24,6 +25,16 @@ const { title } = Astro.props;
   <body>
     <nav class="site-nav" aria-label="Primary">
       <a href="/">Margins</a>
+      {
+        user && (
+          <span class="site-nav-account">
+            <a href="/profile/">Profile</a>
+            <form action="/api/auth/logout" method="post" class="logout-form">
+              <button type="submit">Log out</button>
+            </form>
+          </span>
+        )
+      }
     </nav>
     <slot />
   </body>

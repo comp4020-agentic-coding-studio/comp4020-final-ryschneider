@@ -5,6 +5,7 @@ import { displayName, formatDate, timeAgo } from "../lib/library";
 import { presenceCount } from "../lib/rooms";
 
 const rooms = listRoomsWithActivity();
+const loggedIn = Astro.locals.user !== null;
 ---
 
 <Layout title="Margins">
@@ -12,15 +13,24 @@ const rooms = listRoomsWithActivity();
     <h1>Margins</h1>
     <p class="lede">A small group reads one short text together, live.</p>
 
-    <form id="login-gate">
+    <form id="login-gate" hidden={loggedIn}>
+      <div class="auth-toggle" role="radiogroup" aria-label="Log in or sign up">
+        <button type="button" class="auth-mode active" data-mode="login" aria-pressed="true">Log in</button>
+        <button type="button" class="auth-mode" data-mode="signup" aria-pressed="false">Sign up</button>
+      </div>
       <label>
-        Your name for this visit
-        <input name="handle" required maxlength="40" autocomplete="off" />
+        Username
+        <input name="username" required maxlength="40" autocomplete="username" />
       </label>
-      <button type="submit">Continue</button>
+      <label>
+        Password
+        <input name="password" type="password" required minlength="8" autocomplete="current-password" />
+      </label>
+      <button type="submit">Log in</button>
+      <p id="auth-error" role="alert" hidden></p>
     </form>
 
-    <div id="rooms" hidden>
+    <div id="rooms" hidden={!loggedIn}>
       {
         rooms.length === 0 ? (
           <p>No rooms yet.</p>
@@ -51,38 +61,65 @@ const rooms = listRoomsWithActivity();
     <p class="about-link"><a href="/readme/">About this app</a></p>
 
     <script>
-      import { getHandle, setHandle } from "../lib/session";
-
       const gate = document.getElementById("login-gate") as HTMLFormElement;
-      const roomsEl = document.getElementById("rooms")!;
+      const errorEl = document.getElementById("auth-error")!;
+      const submitButton = gate.querySelector('button[type="submit"]')!;
+      const modeButtons = [...gate.querySelectorAll<HTMLButtonElement>(".auth-mode")];
+      let mode: "login" | "signup" = "login";
 
-      // A room page redirects here with ?next=/room/<slug>/ when it finds no
-      // name for the session yet; once one's given, send the visitor back to
-      // the room they actually wanted instead of stopping at the room list.
-      // Restricted to an in-app room path --- next is attacker-controlled
-      // (anyone can craft a link to this page with any ?next value), and
-      // handing it straight to location.replace would be an open redirect.
+      // A room page redirects here with ?next=/room/<slug>/ when there's no
+      // session yet; once logged in, send the visitor back to the room they
+      // actually wanted instead of stopping at the room list. Restricted to
+      // an in-app room path --- next is attacker-controlled (anyone can
+      // craft a link to this page with any ?next value), and handing it
+      // straight to location.replace would be an open redirect.
       const rawNext = new URLSearchParams(location.search).get("next");
       const next = rawNext && /^\/room\/[^/]+\/$/.test(rawNext) ? rawNext : null;
 
-      function show(): void {
-        gate.hidden = true;
-        roomsEl.hidden = false;
+      // Already logged in? The server rendered the gate hidden (see the
+      // frontmatter's Astro.locals.user check) --- go straight to the room
+      // they wanted instead of stopping at the room list.
+      if (gate.hidden && next) location.replace(next);
+
+      function setMode(newMode: "login" | "signup"): void {
+        mode = newMode;
+        for (const btn of modeButtons) {
+          const active = btn.dataset.mode === mode;
+          btn.classList.toggle("active", active);
+          btn.setAttribute("aria-pressed", String(active));
+        }
+        submitButton.textContent = mode === "login" ? "Log in" : "Sign up";
+        const password = gate.querySelector<HTMLInputElement>('input[name="password"]')!;
+        password.autocomplete = mode === "login" ? "current-password" : "new-password";
+        errorEl.hidden = true;
       }
 
-      if (getHandle()) {
-        if (next) location.replace(next);
-        else show();
+      for (const btn of modeButtons) {
+        btn.addEventListener("click", () => setMode(btn.dataset.mode as "login" | "signup"));
       }
 
-      gate.addEventListener("submit", (e) => {
+      gate.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const input = gate.querySelector<HTMLInputElement>('input[name="handle"]');
-        const value = input?.value.trim();
-        if (!value) return;
-        setHandle(value);
+        const username = gate.querySelector<HTMLInputElement>('input[name="username"]')?.value.trim();
+        const password = gate.querySelector<HTMLInputElement>('input[name="password"]')?.value;
+        if (!username || !password) return;
+
+        errorEl.hidden = true;
+        const res = await fetch(`/api/auth/${mode}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        }).catch(() => null);
+
+        if (!res || !res.ok) {
+          const body = await res?.json().catch(() => null);
+          errorEl.textContent = body?.error ?? "Something went wrong --- try again.";
+          errorEl.hidden = false;
+          return;
+        }
+
         if (next) location.replace(next);
-        else show();
+        else location.reload();
       });
     </script>
   </main>
@@ -98,14 +135,40 @@ const rooms = listRoomsWithActivity();
 
   #login-gate {
     display: flex;
-    align-items: baseline;
+    flex-wrap: wrap;
+    align-items: flex-end;
     gap: var(--space-2);
     margin: var(--space-3) 0 var(--space-4);
     font-size: 0.95rem;
+    max-width: var(--measure);
   }
 
   #login-gate[hidden] {
     display: none;
+  }
+
+  .auth-toggle {
+    display: flex;
+    gap: 0.5rem;
+    flex-basis: 100%;
+    margin-bottom: 0.2rem;
+  }
+
+  .auth-mode {
+    font-size: 0.85rem;
+    padding: 0.3rem 0.8rem;
+    border-color: var(--line);
+    color: var(--ink-muted);
+  }
+
+  .auth-mode.active {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .auth-mode.active:hover {
+    background: none;
+    color: var(--ink);
   }
 
   #login-gate label {
@@ -117,6 +180,17 @@ const rooms = listRoomsWithActivity();
 
   #login-gate input {
     min-width: 12rem;
+  }
+
+  #auth-error {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ember);
+  }
+
+  #auth-error[hidden] {
+    display: none;
   }
 
   .room-list {

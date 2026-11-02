@@ -12,6 +12,15 @@ if (!room) {
   Astro.response.status = 404;
 }
 
+// Logging in happens on the homepage, not here --- a visit with no session
+// yet is bounced there, server-side (the session is a real cookie Astro can
+// read during SSR now, not a client-only sessionStorage check), and back
+// again once one's set (see src/pages/index.astro).
+const user = Astro.locals.user;
+if (room && !user) {
+  return Astro.redirect(`/?next=${encodeURIComponent(Astro.url.pathname)}`);
+}
+
 const paragraphs = room ? splitParagraphs(room.text) : [];
 const heatMarks = room ? listHeatMarks(slug).map(({ startOffset, endOffset }) => ({ start: startOffset, end: endOffset })) : [];
 const densities = paragraphDensities(paragraphs, heatMarks);
@@ -48,20 +57,13 @@ const roomData = { slug, paragraphs, heatMarks };
         </div>
 
         <script type="application/json" id="room-data" set:html={JSON.stringify(roomData)} />
+        <script type="application/json" id="room-user" set:html={JSON.stringify({ username: user!.username, color: user!.color })} />
         <script>
-          import { getHandle } from "../../../lib/session";
           import { initRoom } from "../../../scripts/margins-client";
 
-          // Logging in happens on the homepage, not here --- a visit with no
-          // name for the session yet is bounced there, and back again once
-          // one's set (see src/pages/index.astro).
-          const handle = getHandle();
-          if (!handle) {
-            const back = encodeURIComponent(location.pathname);
-            location.replace(`/?next=${back}`);
-          } else {
-            initRoom(handle);
-          }
+          const userEl = document.getElementById("room-user");
+          const user = JSON.parse(userEl?.textContent ?? "null") as { username: string; color: string } | null;
+          if (user) initRoom(user);
         </script>
       </main>
     )
@@ -122,7 +124,9 @@ const roomData = { slug, paragraphs, heatMarks };
      document.createElement, so they never carry Astro's scoping attribute
      --- :global() is required or this rule silently never matches. */
   .room-text :global(mark) {
-    background-color: #e8c27a;
+    /* background-color is set inline per-note by margins-client.ts, from
+       the author's chosen --note-* color (or --note-overlap for spans more
+       than one author has annotated). */
     color: var(--ink);
     padding: 0 0.1em;
     cursor: pointer;

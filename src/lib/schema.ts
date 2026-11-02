@@ -52,3 +52,28 @@ export const heatMarks = sqliteTable("heat_marks", {
 });
 
 export type HeatMark = typeof heatMarks.$inferSelect;
+
+// An account: display name, chosen note-highlight color, and a password.
+// usernameLower is what signup/login actually match against (same
+// identity-matching-column / display-column split as textSlug/instance
+// above); username keeps the casing the user chose for display. No
+// reference from heat_marks or any room-content table to this table --- a
+// faded note carries no identity at all, deliberately, and accounts owning
+// identity doesn't change that.
+export const users = sqliteTable(
+  "users",
+  {
+    id: int().primaryKey({ autoIncrement: true }),
+    username: text().notNull(),
+    usernameLower: text("username_lower").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    passwordSalt: text("password_salt").notNull(),
+    color: text().notNull().default("#e3b672"), // one of the curated palette's hex values, see src/lib/palette.ts
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [uniqueIndex("users_username_lower_idx").on(table.usernameLower)],
+);
+
+export type User = typeof users.$inferSelect;
