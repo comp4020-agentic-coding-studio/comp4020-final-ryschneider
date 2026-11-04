@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { asc, eq, max } from "drizzle-orm";
+import { asc, desc, eq, max } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { type HeatMark, type Room, type User, heatMarks, rooms, users } from "./schema";
@@ -61,6 +61,57 @@ export function listRoomsWithActivity(): RoomWithActivity[] {
     ...room,
     lastActivityAt: lastHeatAt.get(room.slug) ?? room.createdAt,
   }));
+}
+
+const MAX_INSTANCE_ALLOCATION_ATTEMPTS = 5;
+
+export interface CreateRoomInput {
+  textSlug: string;
+  text: string;
+  title: string;
+  author: string;
+  kind: string;
+  sourceNote: string;
+  description: string;
+  customTitle: string;
+  maxSize: number;
+  creatorUserId: number;
+}
+
+// The same instance-number scheme scripts/seed-from-library.ts uses
+// (max(instance) for this textSlug, +1), but that script runs single-
+// operator from a CLI, where two requests racing on the same computed
+// instance was never possible. An in-app form makes that a real hazard:
+// read-then-insert, retrying with a freshly-queried instance whenever the
+// insert loses a race on rooms_text_slug_instance_idx, rather than a
+// transaction/locking scheme --- the natural fit for better-sqlite3's
+// synchronous API.
+export function createRoom(input: CreateRoomInput): Room {
+  for (let attempt = 0; attempt < MAX_INSTANCE_ALLOCATION_ATTEMPTS; attempt++) {
+    const latest = db
+      .select({ instance: rooms.instance })
+      .from(rooms)
+      .where(eq(rooms.textSlug, input.textSlug))
+      .orderBy(desc(rooms.instance))
+      .limit(1)
+      .get();
+    const instance = (latest?.instance ?? 0) + 1;
+    const slug = `${input.textSlug}-${String(instance).padStart(4, "0")}`;
+
+    try {
+      return db
+        .insert(rooms)
+        .values({ slug, instance, ...input })
+        .returning()
+        .get();
+    } catch (err) {
+      if (err instanceof Database.SqliteError && err.code === "SQLITE_CONSTRAINT_UNIQUE") continue;
+      throw err;
+    }
+  }
+  throw new Error(
+    `could not allocate a room instance for "${input.textSlug}" after ${MAX_INSTANCE_ALLOCATION_ATTEMPTS} attempts`,
+  );
 }
 
 export function listHeatMarks(slug: string): HeatMark[] {

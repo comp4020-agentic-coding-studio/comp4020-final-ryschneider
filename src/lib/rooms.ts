@@ -107,6 +107,14 @@ export function presenceCount(slug: string): number {
   return roomStates.get(slug)?.presence.size ?? 0;
 }
 
+// Whether this userId already has an open connection here --- so a capacity
+// check (rooms.maxSize) never locks out someone already in, only a
+// genuinely new occupant: a reload or a second tab must never be rejected
+// as if it were a new person arriving.
+export function isPresent(slug: string, userId: number): boolean {
+  return roomStates.get(slug)?.presence.has(userId) ?? false;
+}
+
 export function join(slug: string, connectionId: string, userId: number, handle: string, color: string): void {
   const r = room(slug);
   r.connectionUsers.set(connectionId, { userId, handle, color });

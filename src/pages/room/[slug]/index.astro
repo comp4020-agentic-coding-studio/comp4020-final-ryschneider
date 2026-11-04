@@ -4,6 +4,7 @@ import { getRoom, listHeatMarks } from "../../../lib/db";
 import { paragraphDensities } from "../../../lib/heat";
 import { displayName } from "../../../lib/library";
 import { splitParagraphs } from "../../../lib/paragraphs";
+import { isPresent, presenceCount } from "../../../lib/rooms";
 
 const slug = Astro.params.slug!;
 const room = getRoom(slug);
@@ -21,8 +22,18 @@ if (room && !user) {
   return Astro.redirect(`/?next=${encodeURIComponent(Astro.url.pathname)}`);
 }
 
-const paragraphs = room ? splitParagraphs(room.text) : [];
-const heatMarks = room ? listHeatMarks(slug).map(({ startOffset, endOffset }) => ({ start: startOffset, end: endOffset })) : [];
+// A room with a creator-chosen cap (rooms.maxSize) rejects a visit that
+// would be a NEW occupant once full --- a reload or a second tab from
+// someone already present is never treated as new (isPresent()). This is
+// the UX-facing check; src/pages/api/room/[slug]/events.ts re-checks the
+// same condition as the real enforcement boundary, since page-render and
+// SSE-connect aren't atomic (a room can fill in between the two).
+const full = !!(room && user && room.maxSize !== null && !isPresent(slug, user.id) && presenceCount(slug) >= room.maxSize);
+if (full) Astro.response.status = 403;
+
+const paragraphs = room && !full ? splitParagraphs(room.text) : [];
+const heatMarks =
+  room && !full ? listHeatMarks(slug).map(({ startOffset, endOffset }) => ({ start: startOffset, end: endOffset })) : [];
 const densities = paragraphDensities(paragraphs, heatMarks);
 
 const roomData = { slug, paragraphs, heatMarks };
@@ -34,6 +45,18 @@ const roomData = { slug, paragraphs, heatMarks };
       <main class="page">
         <h1>Not found</h1>
         <p>There's no room called "{slug}".</p>
+      </main>
+    ) : full ? (
+      <main class="page room-page">
+        <header class="room-header">
+          <h1>{displayName(room)}</h1>
+          <p class="room-byline">
+            a {room.kind} by {room.author}, from {room.sourceNote}
+          </p>
+        </header>
+        <p class="room-full" role="alert">
+          This room is full ({room.maxSize} people max) --- try again later.
+        </p>
       </main>
     ) : (
       <main class="page room-page">
@@ -96,6 +119,11 @@ const roomData = { slug, paragraphs, heatMarks };
     font-family: var(--font-serif);
     color: var(--ink-muted);
     margin: 0;
+  }
+
+  .room-full {
+    font-family: var(--font-serif);
+    color: var(--ember);
   }
 
   .room {

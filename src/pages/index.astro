@@ -1,10 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { listRoomsWithActivity } from "../lib/db";
-import { displayName, formatDate, timeAgo } from "../lib/library";
+import { displayName, formatDate, listLibraryEntries, timeAgo } from "../lib/library";
 import { presenceCount } from "../lib/rooms";
 
 const rooms = listRoomsWithActivity();
+const libraryEntries = listLibraryEntries();
 const loggedIn = Astro.locals.user !== null;
 ---
 
@@ -31,6 +32,26 @@ const loggedIn = Astro.locals.user !== null;
     </form>
 
     <div id="rooms" hidden={!loggedIn}>
+      <form id="create-room">
+        <h2>Start a room</h2>
+        <label>
+          Text
+          <select name="textSlug" required>
+            {libraryEntries.map((entry) => <option value={entry.slug}>{entry.title} — {entry.author}</option>)}
+          </select>
+        </label>
+        <label>
+          Title
+          <input name="title" required maxlength="80" placeholder="Give your room a title" />
+        </label>
+        <label>
+          Max people
+          <input name="maxSize" type="number" required min="2" max="50" value="10" />
+        </label>
+        <button type="submit">Create room</button>
+        <p id="create-room-error" role="alert" hidden></p>
+      </form>
+
       {
         rooms.length === 0 ? (
           <p>No rooms yet.</p>
@@ -121,6 +142,34 @@ const loggedIn = Astro.locals.user !== null;
         if (next) location.replace(next);
         else location.reload();
       });
+
+      const createRoomForm = document.getElementById("create-room") as HTMLFormElement | null;
+      const createRoomError = document.getElementById("create-room-error");
+
+      createRoomForm?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const textSlug = createRoomForm.querySelector<HTMLSelectElement>('select[name="textSlug"]')?.value;
+        const title = createRoomForm.querySelector<HTMLInputElement>('input[name="title"]')?.value.trim();
+        const maxSize = Number(createRoomForm.querySelector<HTMLInputElement>('input[name="maxSize"]')?.value);
+        if (!textSlug || !title || !maxSize) return;
+
+        createRoomError!.hidden = true;
+        const res = await fetch("/api/rooms", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ textSlug, title, maxSize }),
+        }).catch(() => null);
+
+        if (!res || !res.ok) {
+          const body = await res?.json().catch(() => null);
+          createRoomError!.textContent = body?.error ?? "Something went wrong --- try again.";
+          createRoomError!.hidden = false;
+          return;
+        }
+
+        const body = await res.json();
+        location.assign(`/room/${body.slug}/`);
+      });
     </script>
   </main>
 </Layout>
@@ -193,6 +242,49 @@ const loggedIn = Astro.locals.user !== null;
     display: none;
   }
 
+  #create-room {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-4);
+    font-size: 0.95rem;
+    max-width: var(--measure);
+  }
+
+  #create-room h2 {
+    flex-basis: 100%;
+    font-size: 1rem;
+    margin: 0 0 0.2rem;
+  }
+
+  #create-room label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    color: var(--ink-muted);
+  }
+
+  #create-room input,
+  #create-room select {
+    min-width: 12rem;
+  }
+
+  #create-room input[name="maxSize"] {
+    min-width: 5rem;
+  }
+
+  #create-room-error {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--ember);
+  }
+
+  #create-room-error[hidden] {
+    display: none;
+  }
+
   .room-list {
     list-style: none;
     margin: var(--space-4) 0;
@@ -245,7 +337,8 @@ const loggedIn = Astro.locals.user !== null;
   }
 
   @media (max-width: 42rem) {
-    #login-gate {
+    #login-gate,
+    #create-room {
       flex-direction: column;
       align-items: stretch;
     }

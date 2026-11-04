@@ -18,11 +18,14 @@ fades: it's deleted from memory and replaced by a permanent, anonymous,
 position-only "heat" contribution — no content, no author. There is no
 decay after that; a heat mark, once created, never changes.
 
-Rooms are **seeded by hand** (`scripts/seed-from-library.ts`), never created
-through the app itself, and each one is an instance of a fixed library text
-(`scripts/library/`) — not arbitrary content. A room is titled after its
-work and a per-work instance number, e.g. "Macbeth #0001"; seeding the same
-work again makes a separate, independent room ("Macbeth #0002") rather than
+Rooms are created two ways: in bulk, by hand, via
+`scripts/seed-from-library.ts`; or one at a time, by any logged-in user,
+via a "Start a room" form on the homepage (`POST /api/rooms`). Either way,
+a room is an instance of a fixed library text (`scripts/library/`) — not
+arbitrary content. A seeded room is titled after its work and a per-work
+instance number, e.g. "Macbeth #0001"; a room created through the form
+instead shows the creator's own title. Creating the same work again (either
+path) makes a separate, independent room ("Macbeth #0002") rather than
 updating the first. See "The text library" below.
 
 **Logging in happens once, on the homepage, not per room — and is now a real
@@ -57,6 +60,16 @@ Three tables, SQLite via `better-sqlite3` + `drizzle-orm`:
 - **`rooms`**: `slug` (text, **primary key** — rooms are only ever addressed
   by slug, from the URL to the seed script's argument, so there's no surrogate
   id with nothing to join through), `text` (the room's content), `createdAt`.
+  Three columns are **nullable**, set only for a room created through the
+  app's form, null for every seeded room: `customTitle` (replaces the
+  auto-generated "`<title>` #0001" as the display string when present —
+  see `displayName()` in `src/lib/library.ts`), `maxSize` (a participant
+  cap; null means no cap), `creatorUserId` (references `users.id`; recorded
+  for provenance, nothing currently displays it). Nullable rather than
+  backfilled specifically so adding them needed no `DELETE FROM`-style
+  destructive migration against the real, non-empty production table —
+  contrast with `drizzle/0001_*.sql` below, which could still afford to
+  wipe the table when it held nothing worth keeping.
 - **`heatMarks`**: `id` (autoincrement), `roomSlug` (references `rooms.slug`),
   `startOffset`/`endOffset` (a character span into `rooms.text`), `createdAt`.
   This is the **only** state the spec requires to survive a restart or
@@ -204,17 +217,25 @@ single-file SQLite DB break down together, and that's a real rearchitecture
   Date(...)` on that string parses it as **local** time, not the UTC it
   actually is — silently wrong by the server's UTC offset. Every place that
   turns a stored timestamp into a `Date` goes through that function, or
-  `timeAgo()`/`formatDate()` which already do.
+  `timeAgo()`/`formatDate()` which already do. Also renders, inside the same
+  `hidden`-until-logged-in block, a "Start a room" form (`#create-room`) —
+  a `<select>` of `listLibraryEntries()` (`src/lib/library.ts`), a title
+  input, and a max-size input, POSTing to `POST /api/rooms` and redirecting
+  to the new room on success.
 - `src/pages/room/[slug]/index.astro` — SSR. 404s if the room doesn't exist.
   Splits the room's text into offset-tracked paragraphs
   (`src/lib/paragraphs.ts`), renders the persisted heat density
   (`src/lib/heat.ts`) server-side. Checks `Astro.locals.user`; with no
   session, issues a **server-side** `Astro.redirect` to `/?next=<this path>`
   (previously a client-side `location.replace` after a page's worth of
-  content had already rendered) rather than rendering anything live. Embeds
-  the paragraph table + heat marks as JSON, plus the logged-in user's
-  `username`/`color` (for `initRoom()`), for the client script to consume
-  without re-deriving offsets from a DOM that notes will mutate.
+  content had already rendered) rather than rendering anything live. If the
+  room has a `maxSize` and is already at capacity (and this visitor isn't
+  already present — `isPresent()`, `src/lib/rooms.ts`), renders a
+  **room-full** branch instead: title and byline, no live content, HTTP
+  403. Otherwise embeds the paragraph table + heat marks as JSON, plus the
+  logged-in user's `username`/`color` (for `initRoom()`), for the client
+  script to consume without re-deriving offsets from a DOM that notes will
+  mutate.
 - `src/pages/profile/` — SSR, requires a session (redirects to `/` with
   `?next=/profile/` if not). Reads `Astro.locals.user`. A form for the
   display name plus a color-swatch picker, one radio per
@@ -238,13 +259,27 @@ single-file SQLite DB break down together, and that's a real rearchitecture
   `{username?, color?}`. Validates `color` against `src/lib/palette.ts`'s
   exact hex values — this is the actual enforcement point for "curated
   palette," not just a UI suggestion.
+- `POST /api/rooms` — requires a valid session (401 otherwise); body
+  `{textSlug, title, maxSize}`. Validates `textSlug` against the actual
+  library manifest (`getLibraryEntry()`, `src/lib/library.ts`) — same
+  posture as `color`'s palette check above, never trust a submitted slug
+  just because the client's `<select>` only offered valid ones — plus a
+  title length cap and a `maxSize` range. Calls `createRoom()`
+  (`src/lib/db.ts`), which retries the instance-number allocation on a
+  unique-constraint conflict (see "Seeding" below) since, unlike the CLI
+  script, this can be hit concurrently by multiple users. Responds
+  `{ok:true, slug}` so the homepage can redirect straight into the new room.
 - `GET /api/room/[slug]/events` — the SSE stream. Query param
   `connectionId` (client-generated, fresh per tab/connection — see
   "Client" below for why one tab is always one connection even though an
   account can have several open at once). Identity (`userId`/`handle`/
   `color`) is resolved server-side from `Astro.locals.user`, **not** a query
   param — an earlier version took `handle` straight off the URL with no
-  authentication at all, which accounts specifically closed off.
+  authentication at all, which accounts specifically closed off. If the
+  room is at its `maxSize` and this user isn't already present, responds
+  `403` before ever opening the stream — this, not the room page's own
+  check, is the real capacity boundary (see "Known limitations" for why
+  both exist).
 - `POST /api/room/[slug]/location` — body `{connectionId, offset}`. Identity
   is always resolved server-side from `connectionId` (which `join()` already
   mapped to a `userId` when the SSE connection opened); never trust a
@@ -441,26 +476,34 @@ diff when touching anything `hidden`-toggled or client-rendered.
 
 ## The text library — `scripts/library/`
 
-Every room is an instance of a fixed, curated **text**, not an arbitrary
-file. `scripts/library/manifest.json` is an array of entries
+Every room is an instance of a fixed, curated **text**, not arbitrary
+content. `scripts/library/manifest.json` is an array of entries
 (`slug`, `title`, `author`, `kind` — `"poem" | "play" | "book"` —,
 `sourceNote`, `description`, `file`), one per work; the actual excerpt text
 for each lives alongside it in `scripts/library/texts/<file>`. This is a
-build-time asset (committed to the repo, read by the seed script), not a
-database table — there is deliberately no "add a text through the app" path,
-matching the existing "rooms are seeded by hand" rule.
+build-time asset (committed to the repo), not a database table.
 
-A room is one **instance** of a library entry: seeding `macbeth` the first
-time makes a room titled "Macbeth #0001" at `/room/macbeth-0001/`; seeding it
-again makes a separate room, "Macbeth #0002", with its own independent live
-state and heat — the two never share presence, notes, or history. `rooms`
-stores a copy of the entry's title/author/kind/sourceNote/description at
-seed time (`src/lib/schema.ts`), not a foreign key to the manifest, so a
-room's displayed metadata is exactly what it was seeded with even if the
-manifest is edited afterward — editing `manifest.json` only affects rooms
-seeded *after* the edit. `src/lib/library.ts`'s `displayName()` is the single
-place the `"<title> #<instance, zero-padded to 4>"` format is computed; use
-it rather than reassembling the string elsewhere.
+**Two separate claims, don't conflate them**: adding a new *text* to the
+library (a new manifest entry + text file) is still CLI/hand-edit-manifest
+only — there is deliberately no "add a text through the app" path for that.
+Spinning up a new *room* from a text already in the library, by contrast,
+is now in-app (`POST /api/rooms`, "Start a room" on the homepage) as well
+as by hand (`scripts/seed-from-library.ts`) — see "What the app does" above.
+
+A room is one **instance** of a library entry: creating a room from
+`macbeth` the first time makes a room titled "Macbeth #0001" at
+`/room/macbeth-0001/` (or the creator's own title, if made through the
+form); doing so again makes a separate room, "Macbeth #0002", with its own
+independent live state and heat — the two never share presence, notes, or
+history. `rooms` stores a copy of the entry's
+title/author/kind/sourceNote/description at creation time
+(`src/lib/schema.ts`), not a foreign key to the manifest, so a room's
+displayed metadata is exactly what it was created with even if the manifest
+is edited afterward — editing `manifest.json` only affects rooms created
+*after* the edit. `src/lib/library.ts`'s `displayName()` is the single
+place a room's display name is computed (the creator's `customTitle` if
+set, else `"<title> #<instance, zero-padded to 4>"`); use it rather than
+reassembling the string elsewhere.
 
 **Line breaks matter and differ by `kind`.** The room page renders `text`
 verbatim with `white-space: pre-line` (see the room page's styles) and
@@ -480,7 +523,7 @@ that Gutenberg already set off with blank lines was left as separate
 blocks) before being committed — if you add a new `"book"` entry, reflow it
 the same way before saving the file, not after it's already live in a room.
 
-## Seeding — local and production, same command
+## Creating rooms — by hand (seeding) or through the app
 
 `node scripts/seed-from-library.ts <text-slug>` (slugs come from
 `manifest.json`; running the script with no argument lists them). It looks
@@ -495,15 +538,33 @@ import-time side effect) — it sets up its own tiny better-sqlite3/drizzle
 connection, importing `src/lib/schema.ts` directly with an **explicit `.ts`
 extension**, because this script runs under plain Node, where relative
 imports need the extension spelled out (see `tsconfig.json`'s
-`allowImportingTsExtensions` comment).
+`allowImportingTsExtensions` comment). This remains the only way to add a
+new *text* to the library (see "The text library" above), and is still the
+right tool for bulk/admin seeding.
+
+**The same instance-allocation logic, made concurrency-safe for the app.**
+`createRoom()` (`src/lib/db.ts`) reuses the identical
+read-max-then-insert-at-`+1` scheme, but a CLI script run by one operator
+can never race itself the way concurrent HTTP requests to `POST /api/rooms`
+can. `createRoom()` wraps the read-then-insert in a bounded retry loop (5
+attempts): if two requests for the same `textSlug` compute the same
+`instance` and one insert loses on `rooms_text_slug_instance_idx`, it
+re-reads the now-current max and retries, rather than surfacing a raw
+constraint error to the user. No transaction/locking scheme is needed —
+better-sqlite3 is synchronous, so each attempt is atomic with respect to
+JS's single-threaded execution; the loop only exists for the case where a
+*different* request's insert already committed between this request's read
+and its own insert.
 
 For production: the Dockerfile copies `scripts/seed-from-library.ts`,
 `scripts/library/`, and `src/lib/schema.ts` into the runtime image
 specifically so this works unchanged against the real Fly volume via
 `flyctl ssh console -a <app-name> -C "node scripts/seed-from-library.ts <text-slug>"`.
 If you add a script that needs to run against the production database, this
-is the pattern to copy — don't invent an admin HTTP endpoint for it; rooms
-are seeded by hand on purpose.
+is the pattern to copy — don't invent an admin HTTP endpoint for it just
+because `POST /api/rooms` now exists for the *user-facing* creation path;
+admin/bulk operations are deliberately kept as hand-run scripts, not app
+routes.
 
 **Migration note** (`drizzle/0001_*.sql`): adding the metadata columns as
 `NOT NULL` with no default meant the migration itself had to `DELETE FROM
@@ -534,6 +595,20 @@ already hold rows, this is the failure mode to check for first.
   time, not a password version. Deliberate scope boundary for this app's
   size, not an oversight.
 - No login rate-limiting or lockout. Same reasoning as above.
+- No rate-limiting on room creation either — one account can create as many
+  rooms as it likes. Same deliberate scope boundary.
+- **A room-full rejection can race.** The room page's SSR check and the SSE
+  endpoint's own check (`src/pages/api/room/[slug]/events.ts`) aren't
+  atomic with each other — a room can fill in the gap between page render
+  and the client opening its `EventSource`. If that happens, the SSE
+  endpoint's `403` is the one that actually fires, but `EventSource` gives
+  no access to a failed connection's HTTP status in `onmessage`, and its
+  default behavior is to retry silently and indefinitely. The visible
+  result in that rare case: the static server-rendered text stays fully
+  readable, but live presence/notes never populate and no explicit "this
+  room filled up" message appears. Not chased further since the common
+  case (checked at page-load) is handled and this race is both rare and
+  non-adversarial here.
 - No automated test covers the propagation/fade state machine itself (two
   concurrent SSE clients, timing-dependent disconnects). This was a
   deliberate call, not an oversight: `spec/README.md`'s own framing treats
@@ -569,8 +644,10 @@ already hold rows, this is the failure mode to check for first.
 | Change colors, type, or spacing | `src/styles/global.css` tokens — not per-page overrides |
 | Touch the homepage's per-room stats (presence/created/last-annotated) | `presenceCount()` in `src/lib/rooms.ts`, `listRoomsWithActivity()` in `src/lib/db.ts`, formatting in `src/lib/library.ts` — always go through `parseSqliteTimestamp()` for any stored timestamp, never `new Date(stored)` directly |
 | Style something margins-client.ts builds with `createElement` | needs `:global()` in that page's `<style>` — see "Design system" above |
-| Add, edit, or remove a library text | `scripts/library/manifest.json` + `scripts/library/texts/` — editing an existing entry only affects rooms seeded afterward |
-| Seed a new room from the library | `scripts/seed-from-library.ts <text-slug>`; production via `flyctl ssh console` (see above) |
+| Add, edit, or remove a library text | `scripts/library/manifest.json` + `scripts/library/texts/` — editing an existing entry only affects rooms created afterward |
+| Seed a room from the library by hand | `scripts/seed-from-library.ts <text-slug>`; production via `flyctl ssh console` (see above) |
+| Create a room through the app | `src/pages/api/rooms.ts`, `createRoom()` in `src/lib/db.ts`, `listLibraryEntries()`/`getLibraryEntry()`/`readLibraryText()` in `src/lib/library.ts` |
+| Touch room capacity / "this room is full" | `isPresent()` in `src/lib/rooms.ts`, the room page's frontmatter, `src/pages/api/room/[slug]/events.ts` |
 | Know what's mechanically checked vs. judged by a person | `spec/README.md` |
 | Know what's fixed about the deploy vs. what's this app's choice | `fly.toml`, `Dockerfile` (both have comments marking the line) |
 | The published brief/spec for this week | the course site — CLAUDE.md links it |
