@@ -32,25 +32,32 @@ const loggedIn = Astro.locals.user !== null;
     </form>
 
     <div id="rooms" hidden={!loggedIn}>
-      <form id="create-room">
-        <h2>Start a room</h2>
-        <label>
-          Text
-          <select name="textSlug" required>
-            {libraryEntries.map((entry) => <option value={entry.slug}>{entry.title} — {entry.author}</option>)}
-          </select>
-        </label>
-        <label>
-          Title
-          <input name="title" required maxlength="80" placeholder="Give your room a title" />
-        </label>
-        <label>
-          Max people
-          <input name="maxSize" type="number" required min="2" max="50" value="10" />
-        </label>
-        <button type="submit">Create room</button>
-        <p id="create-room-error" role="alert" hidden></p>
-      </form>
+      <button type="button" id="open-create-room">Start a room</button>
+
+      <dialog id="create-room-dialog">
+        <form id="create-room">
+          <h2>Start a room</h2>
+          <label>
+            Text
+            <select name="textSlug" required>
+              {libraryEntries.map((entry) => <option value={entry.slug}>{entry.title} — {entry.author}</option>)}
+            </select>
+          </label>
+          <label>
+            Title
+            <input name="title" required maxlength="80" placeholder="Give your room a title" />
+          </label>
+          <label>
+            Max people
+            <input name="maxSize" type="number" required min="2" max="50" value="10" />
+          </label>
+          <div class="create-room-actions">
+            <button type="button" id="cancel-create-room">Cancel</button>
+            <button type="submit">Create room</button>
+          </div>
+          <p id="create-room-error" role="alert" hidden></p>
+        </form>
+      </dialog>
 
       {
         rooms.length === 0 ? (
@@ -143,8 +150,14 @@ const loggedIn = Astro.locals.user !== null;
         else location.reload();
       });
 
+      const createRoomDialog = document.getElementById("create-room-dialog") as HTMLDialogElement | null;
+      const openCreateRoom = document.getElementById("open-create-room");
+      const cancelCreateRoom = document.getElementById("cancel-create-room");
       const createRoomForm = document.getElementById("create-room") as HTMLFormElement | null;
       const createRoomError = document.getElementById("create-room-error");
+
+      openCreateRoom?.addEventListener("click", () => createRoomDialog?.showModal());
+      cancelCreateRoom?.addEventListener("click", () => createRoomDialog?.close());
 
       createRoomForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -242,40 +255,55 @@ const loggedIn = Astro.locals.user !== null;
     display: none;
   }
 
+  #open-create-room {
+    margin-bottom: var(--space-3);
+  }
+
+  #create-room-dialog {
+    border: 1px solid var(--line);
+    border-radius: 0.3rem;
+    padding: var(--space-3);
+    width: min(26rem, calc(100vw - 2 * var(--space-2)));
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  #create-room-dialog::backdrop {
+    background: rgba(42, 39, 34, 0.4);
+  }
+
   #create-room {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
+    flex-direction: column;
     gap: var(--space-2);
-    margin: 0 0 var(--space-4);
     font-size: 0.95rem;
-    max-width: var(--measure);
   }
 
   #create-room h2 {
-    flex-basis: 100%;
-    font-size: 1rem;
-    margin: 0 0 0.2rem;
+    font-size: 1.1rem;
+    margin: 0;
   }
 
   #create-room label {
     display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
+    flex-direction: column;
+    gap: 0.3rem;
     color: var(--ink-muted);
   }
 
   #create-room input,
   #create-room select {
-    min-width: 12rem;
+    width: 100%;
   }
 
-  #create-room input[name="maxSize"] {
-    min-width: 5rem;
+  .create-room-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 0.3rem;
   }
 
   #create-room-error {
-    flex-basis: 100%;
     margin: 0;
     font-size: 0.85rem;
     color: var(--ember);
@@ -337,8 +365,7 @@ const loggedIn = Astro.locals.user !== null;
   }
 
   @media (max-width: 42rem) {
-    #login-gate,
-    #create-room {
+    #login-gate {
       flex-direction: column;
       align-items: stretch;
     }
