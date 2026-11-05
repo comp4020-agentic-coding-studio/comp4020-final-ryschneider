@@ -1,20 +1,21 @@
 import { sql } from "drizzle-orm";
 import { int, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-// Rooms are seeded by hand (scripts/seed-from-library.ts) --- never created through
-// the app. The slug is the only way a room is ever addressed (the URL, the
-// seed script's argument, heat_marks' reference below), so it's the primary
-// key itself rather than a surrogate id with nothing to join through.
+// Rooms are created two ways: by hand, in bulk, via
+// scripts/seed-from-library.ts; or by any logged-in user, one at a time,
+// via POST /api/rooms (src/lib/db.ts's createRoom()). The slug is the only
+// way a room is ever addressed (the URL, the seed script's argument,
+// heat_marks' reference below), so it's the primary key itself rather than
+// a surrogate id with nothing to join through.
 //
-// Each room is one instance of a text from the library (scripts/library/,
-// seeded via scripts/seed-from-library.ts): textSlug identifies which work
-// (e.g. "macbeth"), instance is that work's 1-based room count (so the room
-// displays as "Macbeth #0001", the next one seeded from the same work as
-// "Macbeth #0002"). title/author/kind/sourceNote/description are copied in
-// at seed time from the library's manifest rather than joined against it,
-// since the manifest is a build-time asset, not a database table --- a
-// room's display metadata stays exactly what it was seeded with even if the
-// library's own copy is edited afterwards.
+// Each room is one instance of a text from the library (scripts/library/):
+// textSlug identifies which work (e.g. "macbeth"), instance is that work's
+// 1-based room count (so the room displays as "Macbeth #0001", the next one
+// from the same work as "Macbeth #0002"). title/author/kind/sourceNote/
+// description are copied in at creation time from the library's manifest
+// rather than joined against it, since the manifest is a build-time asset,
+// not a database table --- a room's display metadata stays exactly what it
+// was created with even if the library's own copy is edited afterwards.
 export const rooms = sqliteTable(
   "rooms",
   {
@@ -27,6 +28,19 @@ export const rooms = sqliteTable(
     kind: text().notNull(), // "poem" | "play" | "book"
     sourceNote: text("source_note").notNull(),
     description: text().notNull(),
+    // Set only for rooms created through the app's own form; null for every
+    // room seeded by scripts/seed-from-library.ts. When present, REPLACES
+    // the auto-generated "<title> #0001" as the display string (see
+    // displayName() in src/lib/library.ts) --- the byline ("a {kind} by
+    // {author}") is unaffected either way.
+    customTitle: text("custom_title"),
+    // The creator's chosen participant cap, or null for "no cap" (every
+    // seeded room). Nullable rather than a sentinel (0/-1) so "no cap" can
+    // never be confused with a real, very large cap.
+    maxSize: int("max_size"),
+    // Which account created this room through the app, or null for a
+    // seeded room. Recorded for provenance; nothing currently displays it.
+    creatorUserId: int("creator_user_id").references(() => users.id),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),

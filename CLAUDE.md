@@ -12,7 +12,7 @@ When a choice changes what the product does or looks like, state the assumption 
 
 ## Production code stays honest
 
-No demo data, auto-seeded rooms, or test fixtures in production paths. Seeding is a separate script that a person runs on purpose. That script imports the real modules; it never carries a copy of the rule it is exercising.
+No demo data, auto-seeded rooms, or test fixtures in production paths. Seeding is a separate script that a person runs on purpose. That script imports the real modules; it never carries a copy of the rule it is exercising. A room created through the app's own form by a real logged-in user is real product data, not a demo/fixture — this rule is about fake content and auto-seeding, not about who's allowed to create a room.
 
 ## Commits and citations
 

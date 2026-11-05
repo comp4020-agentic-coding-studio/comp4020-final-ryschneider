@@ -1,14 +1,15 @@
 import type { APIRoute } from "astro";
 import { getRoom } from "../../../../lib/db";
 import { bus } from "../../../../lib/events";
-import { getSnapshot, join, leave } from "../../../../lib/rooms";
+import { getSnapshot, isPresent, join, leave, presenceCount } from "../../../../lib/rooms";
 
 // Server-sent events: a long-lived streaming response the browser consumes
 // with `new EventSource(...)`. One-directional (server -> browser), which is
 // why this needs no custom server or WebSocket upgrade --- it's plain HTTP.
 export const GET: APIRoute = ({ params, url, locals }) => {
   const slug = params.slug;
-  if (!slug || !getRoom(slug)) return new Response(null, { status: 404 });
+  const room = slug ? getRoom(slug) : undefined;
+  if (!slug || !room) return new Response(null, { status: 404 });
 
   // Identity is resolved server-side from the session cookie (middleware
   // already populated locals.user), never trusted from a client-supplied
@@ -17,6 +18,17 @@ export const GET: APIRoute = ({ params, url, locals }) => {
   const user = locals.user;
   const connectionId = url.searchParams.get("connectionId");
   if (!connectionId || !user) return new Response(null, { status: user ? 400 : 401 });
+
+  // The real capacity boundary --- the room page's own SSR check is only
+  // the visible UX; it can't be atomic with this connect (a room can fill
+  // in the gap between page render and the client opening its
+  // EventSource), so this is what actually stops a room exceeding its cap.
+  if (room.maxSize !== null && !isPresent(slug, user.id) && presenceCount(slug) >= room.maxSize) {
+    return new Response(JSON.stringify({ error: "This room is full" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   let onEvent: (event: unknown) => void;
   let heartbeat: ReturnType<typeof setInterval>;
