@@ -40,7 +40,11 @@ const loggedIn = Astro.locals.user !== null;
           <label>
             Text
             <select name="textSlug" required>
-              {libraryEntries.map((entry) => <option value={entry.slug}>{entry.title} — {entry.author}</option>)}
+              {libraryEntries.map((entry) => (
+                <option value={entry.slug} data-title={entry.title}>
+                  {entry.title} — {entry.author}
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -158,8 +162,30 @@ const loggedIn = Astro.locals.user !== null;
       const createRoomForm = document.getElementById("create-room") as HTMLFormElement | null;
       const createRoomError = document.getElementById("create-room-error");
 
-      openCreateRoom?.addEventListener("click", () => createRoomDialog?.showModal());
       cancelCreateRoom?.addEventListener("click", () => createRoomDialog?.close());
+
+      // Title starts as whatever text is selected, so picking a text alone is
+      // often enough to create a room --- but once someone types their own
+      // title, stop overwriting it: a typed title is a deliberate choice, not
+      // something the select should keep clobbering as it changes.
+      const textSelect = createRoomForm?.querySelector<HTMLSelectElement>('select[name="textSlug"]');
+      const titleInput = createRoomForm?.querySelector<HTMLInputElement>('input[name="title"]');
+      let titleEditedByUser = false;
+
+      function fillTitleFromSelection(): void {
+        if (titleEditedByUser || !textSelect || !titleInput) return;
+        titleInput.value = textSelect.selectedOptions[0]?.dataset.title ?? "";
+      }
+
+      titleInput?.addEventListener("input", () => {
+        titleEditedByUser = true;
+      });
+      textSelect?.addEventListener("change", fillTitleFromSelection);
+      openCreateRoom?.addEventListener("click", () => {
+        titleEditedByUser = false;
+        fillTitleFromSelection();
+        createRoomDialog?.showModal();
+      });
 
       createRoomForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
