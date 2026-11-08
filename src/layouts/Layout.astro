@@ -24,7 +24,10 @@ const user = Astro.locals.user;
   </head>
   <body>
     <nav class="site-nav" aria-label="Primary">
-      <a href="/">Margins</a>
+      <span class="site-nav-brand">
+        <a href="/">Margins</a>
+        <a href="/readme/" class="about-link">About this app</a>
+      </span>
       {
         user && (
           <span class="site-nav-account">
