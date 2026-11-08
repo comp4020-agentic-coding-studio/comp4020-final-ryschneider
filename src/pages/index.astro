@@ -69,14 +69,18 @@ const loggedIn = Astro.locals.user !== null;
                 const here = presenceCount(room.slug);
                 return (
                   <li>
-                    <a href={`/room/${room.slug}/`}>{displayName(room)}</a>
-                    <p class="room-byline">
-                      a {room.kind} by {room.author}
-                    </p>
-                    <p class="room-excerpt">{room.description}</p>
-                    <p class="room-stats">
-                      {here === 0 ? "No one here right now" : here === 1 ? "1 person here now" : `${here} people here now`}, started {formatDate(room.createdAt)}, last annotated {timeAgo(room.lastActivityAt)}.
-                    </p>
+                    <div class="room-main">
+                      <a href={`/room/${room.slug}/`}>{displayName(room)}</a>
+                      <p class="room-byline">
+                        a {room.kind} by {room.author}
+                      </p>
+                      <p class="room-excerpt">{room.description}</p>
+                    </div>
+                    <ul class="room-stats">
+                      <li>{here === 0 ? "No one here right now" : here === 1 ? "1 person here now" : `${here} people here now`}</li>
+                      <li>started {formatDate(room.createdAt)}</li>
+                      <li>last annotated {timeAgo(room.lastActivityAt)}</li>
+                    </ul>
                   </li>
                 );
               })
@@ -320,9 +324,16 @@ const loggedIn = Astro.locals.user !== null;
     border-top: 1px solid var(--line);
   }
 
-  .room-list li {
+  .room-list > li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
     padding: var(--space-3) 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .room-main {
+    min-width: 0;
   }
 
   .room-list a {
@@ -351,9 +362,18 @@ const loggedIn = Astro.locals.user !== null;
   }
 
   .room-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+    flex-shrink: 0;
+    list-style: none;
+    margin: 0;
+    padding: 0;
     font-size: 0.8rem;
     color: var(--ink-muted);
-    margin: 0.5rem 0 0;
+    text-align: right;
+    white-space: nowrap;
   }
 
   .about-link {
@@ -368,6 +388,17 @@ const loggedIn = Astro.locals.user !== null;
     #login-gate {
       flex-direction: column;
       align-items: stretch;
+    }
+
+    .room-list > li {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .room-stats {
+      align-items: flex-start;
+      text-align: left;
+      white-space: normal;
     }
   }
 </style>

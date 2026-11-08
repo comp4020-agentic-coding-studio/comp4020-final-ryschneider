@@ -30,8 +30,13 @@ export function getRoom(slug: string): Room | undefined {
   return db.select().from(rooms).where(eq(rooms.slug, slug)).get();
 }
 
+// Newest-created first --- SQLite's datetime('now') default (used by every
+// createdAt column) writes a fixed-width "YYYY-MM-DD HH:MM:SS" string, so
+// lexicographic ordering is already chronological ordering; no need to
+// parse it into a Date first (the same assumption lastHeatAtByRoom() below
+// already relies on for "latest").
 export function listRooms(): Room[] {
-  return db.select().from(rooms).orderBy(asc(rooms.title), asc(rooms.instance)).all();
+  return db.select().from(rooms).orderBy(desc(rooms.createdAt)).all();
 }
 
 // Last heat mark per room, in one query rather than one-per-room --- there
